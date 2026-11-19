@@ -5,7 +5,7 @@ import { api, hora, laboratorio } from './api';
 import { useSesion, validarAcceso } from './sesion';
 import { Boton, Campo, Mensaje, Pantalla, estilos } from './ui';
 import Mapa from './Mapa';
-import { detenerGPS, enviarGPS, iniciarGPS, pendientesGPS } from './gps';
+import { detenerGPS, enviarGPS, iniciarGPS, pendientesGPS, rechazadasGPS } from './gps';
 
 const titulos = { login: 'RSU Conductor', servidor: 'Configurar servidor', lista: 'Mis Programaciones', hoy: 'Programación de Hoy', pendiente: 'Programación pendiente', activo: 'Recorrido en curso', cerrar: 'Finalizar recorrido', historial: 'Historial de recorridos', detalle: 'Detalle del recorrido', mapa: 'Mapa del recorrido', perfil: 'Mi perfil' };
 const horaCorta = fecha => new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(fecha));
@@ -31,6 +31,7 @@ export default function Conductor() {
     const [ocupado, marcar] = useState(false);
     const [gps, estadoGPS] = useState('');
     const [pendientes, ponerPendientes] = useState(0);
+    const [rechazadas, ponerRechazadas] = useState(0);
     const [ahora, tic] = useState(Date.now());
     const enviar = (ruta, datos, token = sesion.token) => api('conductor/' + ruta, { token, datos });
 
@@ -82,7 +83,10 @@ export default function Conductor() {
                 proximo = Date.now() + reintento; reintento = Math.min(reintento * 2, 30000);
             } finally {
                 consultando = false;
-                if (vivo) ponerPendientes(await pendientesGPS(sesion.origen, activo));
+                if (vivo) {
+                    ponerPendientes(await pendientesGPS(sesion.origen, activo));
+                    ponerRechazadas(await rechazadasGPS(sesion.origen, activo));
+                }
             }
         }
         actualizar();
@@ -126,7 +130,9 @@ export default function Conductor() {
                     while (await pendientesGPS(sesion.origen, activo)) await enviarGPS(sesion.origen, sesion.token, activo);
                     const cerrado = (await enviar('recorridos/' + activo.id + '/finalizar', { observacion: texto })).data;
                     guardarActivo(null); guardarViaje(cerrado); escribirObservacion(''); ver('detalle');
-                    ponerAviso('Recorrido finalizado a las ' + horaCorta(cerrado.fin) + '.');
+                    const fuera = await rechazadasGPS(sesion.origen, activo);
+                    ponerAviso('Recorrido finalizado a las ' + horaCorta(cerrado.fin) + '.' +
+                        (fuera ? ' ' + fuera + ' ubicaciones fuera de ventana conservadas en el dispositivo.' : ''));
                 } catch (fallo) {
                     const dato = await enviar('recorridos/' + activo.id).catch(() => null);
                     if (dato?.data.estado === 'completado') { guardarActivo(null); guardarViaje(dato.data); ver('detalle'); ponerAviso('Recorrido finalizado.'); return; }
@@ -196,6 +202,7 @@ export default function Conductor() {
             <Mapa vertices={activo.zona_vertices} puntos={activo.puntos} />
             <Mensaje texto={gps || 'Buscando señal GPS…'} />
             {pendientes > 0 && <Mensaje texto={pendientes + ' ubicaciones por enviar'} />}
+            {rechazadas > 0 && <Mensaje texto={rechazadas + ' ubicaciones fuera de ventana guardadas para revisión.'} />}
             {ultima && <Mensaje texto={ultima.lat.toFixed(5) + ', ' + ultima.lng.toFixed(5)} />}
             <Boton texto="Finalizar recorrido" onPress={() => ir('cerrar')} />
         </>}

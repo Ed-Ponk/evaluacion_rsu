@@ -10,7 +10,7 @@ let conexion;
 let sincronizando;
 function base() {
     return conexion ??= SQLite.openDatabaseAsync('recorridos-v3.db').then(async db => {
-        await db.execAsync('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=3000; CREATE TABLE IF NOT EXISTS control (id INTEGER PRIMARY KEY CHECK(id=1), clave TEXT, fin INTEGER); CREATE TABLE IF NOT EXISTS cola (id TEXT PRIMARY KEY, clave TEXT, fecha INTEGER, contenido TEXT); CREATE TABLE IF NOT EXISTS capturas (clave TEXT PRIMARY KEY, fecha INTEGER);');
+        await db.execAsync('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=3000; CREATE TABLE IF NOT EXISTS control_v3 (id INTEGER PRIMARY KEY CHECK(id=1), clave TEXT, inicio INTEGER, fin INTEGER); CREATE TABLE IF NOT EXISTS cola (id TEXT PRIMARY KEY, clave TEXT, fecha INTEGER, contenido TEXT); CREATE TABLE IF NOT EXISTS capturas (clave TEXT PRIMARY KEY, fecha INTEGER); CREATE TABLE IF NOT EXISTS ubicaciones_rechazadas (id TEXT PRIMARY KEY, clave TEXT, fecha INTEGER, contenido TEXT);');
         return db;
     });
 }
@@ -18,18 +18,18 @@ function base() {
 TaskManager.defineTask(TAREA, async ({ data, error }) => {
     if (error || !data?.locations?.length) return;
     const db = await base();
-    const activo = await db.getFirstAsync('SELECT clave, fin FROM control WHERE id=1');
+    const activo = await db.getFirstAsync('SELECT clave, inicio, fin FROM control_v3 WHERE id=1');
     if (!activo || Date.now() >= activo.fin) {
         await detenerGPS();
         return;
     }
     await db.withExclusiveTransactionAsync(async tx => {
-        const control = await tx.getFirstAsync('SELECT clave, fin FROM control WHERE id=1');
+        const control = await tx.getFirstAsync('SELECT clave FROM control_v3 WHERE id=1');
         if (control?.clave !== activo.clave) return;
         const ultima = await tx.getFirstAsync('SELECT fecha FROM capturas WHERE clave=?', activo.clave);
         let anterior = ultima?.fecha ?? 0;
         for (const p of data.locations.sort((a, b) => a.timestamp - b.timestamp)) {
-            if (p.timestamp >= activo.fin || p.timestamp <= anterior) continue;
+            if (p.timestamp < activo.inicio || p.timestamp >= activo.fin || p.timestamp <= anterior) continue;
             const operacion = randomUUID();
             const punto = { operacion, lat: p.coords.latitude, lng: p.coords.longitude,
                 precision: p.coords.accuracy, momento: new Date(p.timestamp).toISOString() };
@@ -57,7 +57,7 @@ export async function iniciarGPS(origen, viaje) {
     const clave = claveGPS(origen, viaje);
     const fin = Date.parse(viaje.captura_hasta);
     if (!Number.isFinite(fin) || Date.now() >= fin) return;
-    await db.runAsync('INSERT OR REPLACE INTO control VALUES (1,?,?)', clave, fin);
+    await db.runAsync('INSERT OR REPLACE INTO control_v3 VALUES (1,?,?,?)', clave, Date.parse(viaje.inicio), fin);
     if (await Location.hasStartedLocationUpdatesAsync(TAREA)) return;
     await Location.startLocationUpdatesAsync(TAREA, {
         accuracy: Location.Accuracy.High, timeInterval: 5000, distanceInterval: 0,
@@ -68,7 +68,7 @@ export async function iniciarGPS(origen, viaje) {
 
 export async function detenerGPS() {
     const db = await base();
-    await db.runAsync('DELETE FROM control');
+    await db.runAsync('DELETE FROM control_v3');
     if (await Location.hasStartedLocationUpdatesAsync(TAREA)) await Location.stopLocationUpdatesAsync(TAREA);
 }
 
@@ -82,6 +82,11 @@ export async function pendientesGPS(origen, viaje) {
     return (await db.getFirstAsync('SELECT COUNT(*) AS total FROM cola WHERE clave=?', claveGPS(origen, viaje))).total;
 }
 
+export async function rechazadasGPS(origen, viaje) {
+    const db = await base();
+    return (await db.getFirstAsync('SELECT COUNT(*) AS total FROM ubicaciones_rechazadas WHERE clave=?', claveGPS(origen, viaje))).total;
+}
+
 export function enviarGPS(origen, token, viaje) {
     if (sincronizando) return sincronizando;
     sincronizando = (async () => {
@@ -90,11 +95,17 @@ export function enviarGPS(origen, token, viaje) {
         const resultado = await api('conductor/recorridos/' + viaje.id + '/puntos', {
             origen, token, datos: { puntos: filas.map(fila => JSON.parse(fila.contenido)) },
         });
-        if (resultado.registrados + resultado.repetidos !== filas.length) {
-            throw new Error('El servidor rechazó algunas ubicaciones. Los puntos siguen guardados para revisión.');
+        const rechazadas = resultado.fuera_de_ventana ?? [];
+        if (resultado.registrados + resultado.repetidos + rechazadas.length !== filas.length) {
+            throw new Error('No se confirmó el lote. Los puntos siguen guardados para revisión.');
         }
         const db = await base();
-        await db.runAsync('DELETE FROM cola WHERE id IN (' + filas.map(() => '?').join(',') + ')', filas.map(fila => fila.id));
+        await db.withExclusiveTransactionAsync(async tx => {
+            if (rechazadas.length) {
+                await tx.runAsync('INSERT OR IGNORE INTO ubicaciones_rechazadas SELECT * FROM cola WHERE id IN (' + rechazadas.map(() => '?').join(',') + ')', rechazadas);
+            }
+            await tx.runAsync('DELETE FROM cola WHERE id IN (' + filas.map(() => '?').join(',') + ')', filas.map(fila => fila.id));
+        });
     })().finally(() => { sincronizando = null; });
     return sincronizando;
 }

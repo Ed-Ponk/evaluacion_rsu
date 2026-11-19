@@ -65,7 +65,7 @@ class RecorridoController extends Controller
             'puntos.*.operacion' => ['nullable', 'uuid'],
         ]);
 
-        [$registrados, $repetidos, $descartados] = DB::transaction(function () use ($request, $recorrido, $datos) {
+        [$registrados, $repetidos, $descartados, $fueraDeVentana] = DB::transaction(function () use ($request, $recorrido, $datos) {
             $r = $this->delConductor($request, $recorrido, bloquear: true);
             abort_if(! $r->enCurso(), 422, 'El recorrido ya fue finalizado: no se registran más ubicaciones.');
 
@@ -75,6 +75,7 @@ class RecorridoController extends Controller
         $respuesta = ['registrados' => $registrados, 'descartados' => $descartados];
         if (array_filter(array_column($datos['puntos'], 'operacion'))) {
             $respuesta['repetidos'] = $repetidos;
+            $respuesta['fuera_de_ventana'] = $fueraDeVentana;
         }
 
         return response()->json($respuesta);
@@ -89,6 +90,7 @@ class RecorridoController extends Controller
         $registradas = $r->puntos()->whereIn('operation_id', array_filter(array_column($puntos, 'operacion')))
             ->pluck('operation_id')->map(fn ($id) => strtolower($id))->flip()->all();
         $repetidos = 0;
+        $fueraDeVentana = [];
 
         foreach ($puntos as $punto) {
             $operacion = isset($punto['operacion']) ? strtolower($punto['operacion']) : null;
@@ -100,6 +102,10 @@ class RecorridoController extends Controller
             $momento = Carbon::parse($punto['momento'])->setTimezone(config('app.timezone'));
 
             if ($momento->lt($desde) || $momento->gt($hasta)) {
+                if ($operacion !== null) {
+                    $fueraDeVentana[] = $operacion;
+                }
+
                 continue;
             }
 
@@ -121,7 +127,7 @@ class RecorridoController extends Controller
             PuntoRecorrido::insert($filas);
         }
 
-        return [count($filas), $repetidos, count($puntos) - count($filas) - $repetidos];
+        return [count($filas), $repetidos, count($puntos) - count($filas) - $repetidos, $fueraDeVentana];
     }
 
     /** Cierra el recorrido con la observación del conductor y detiene el registro de coordenadas. */

@@ -34,8 +34,8 @@ export default function Mapa({ vertices = [], puntos = [], ubicacion, finalizado
                 fill="#b9def3" fillOpacity={0.65} stroke="#4884a6" strokeWidth={2} strokeDasharray="5 5" />}
             {puntos.length > 1 && <Polyline points={puntos.map(p => xy(p).join(',')).join(' ')}
                 fill="none" stroke="#0759ae" strokeWidth={4} strokeLinejoin="round" strokeLinecap="round" />}
-            {puntos.length > 0 && marca(puntos[0], '#15803d', 6)}
-            {puntos.length > 0 && marca(puntos.at(-1), finalizado ? '#b91c1c' : '#0759ae', 7)}
+            {puntos.length > 0 && marca(puntos[0], '#15803d', finalizado ? 12 : 8)}
+            {puntos.length > 0 && marca(puntos.at(-1), finalizado ? '#b91c1c' : '#0759ae', 6)}
             {ubicacion && marca(ubicacion, '#6d28d9', 6)}
         </Svg>
         <Text style={estilos.texto}>Zona · {finalizado ? 'Inicio y fin' : 'Última posición del camión'} · {puntos.length} ubicaciones{ubicacion ? ' · Tu ubicación' : ''}</Text>

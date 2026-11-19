@@ -147,9 +147,15 @@ class ConductorApiTest extends TestCase
             ->assertOk()->assertJsonPath('registrados', 1)->assertJsonPath('repetidos', 1);
         $this->api('post', "recorridos/$r/puntos", $token, ['puntos' => [$punto]])
             ->assertOk()->assertJsonPath('repetidos', 1);
+        $anterior = array_replace($punto, ['momento' => now()->subMinutes(2)->toIso8601String(), 'operacion' => (string) Str::uuid()]);
+        $this->api('post', "recorridos/$r/puntos", $token, ['puntos' => [$anterior]])
+            ->assertOk()->assertJsonPath('descartados', 1)
+            ->assertJsonPath('fuera_de_ventana.0', $anterior['operacion']);
         $llamar('get', $url)->assertOk()->assertJsonPath('data.estado', 'en_curso')
             ->assertJsonCount(1, 'data.recorrido.puntos')->assertDontSee($conductor->email);
         $this->api('post', "recorridos/$r/finalizar", $token, ['observacion' => 'Ruta terminada'])->assertOk();
+        $this->api('get', 'programaciones', $token)->assertOk()->assertJsonCount(0, 'data');
+        $this->api('get', 'programaciones/hoy', $token)->assertOk()->assertJsonPath('data.recorrido.estado', 'completado');
         $llamar('post', "$url/valoracion", ['stars' => 6])->assertUnprocessable();
         $llamar('post', "$url/valoracion", ['stars' => 4, 'comment' => 'A tiempo', 'citizen_id' => 999])
             ->assertOk()->assertJsonPath('votos', 1);

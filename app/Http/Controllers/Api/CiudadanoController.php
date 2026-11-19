@@ -33,6 +33,9 @@ class CiudadanoController
                 }
             }],
             'zone_id' => $this->zonaActiva(),
+        ], [], [
+            'dni' => 'DNI', 'name' => 'nombres', 'last_name' => 'apellidos', 'email' => 'correo electrónico',
+            'password' => 'contraseña', 'zone_id' => 'zona',
         ]);
 
         $usuario = DB::transaction(function () use ($datos) {
