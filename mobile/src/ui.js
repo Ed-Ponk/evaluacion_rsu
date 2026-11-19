@@ -1,10 +1,11 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export function Pantalla({ titulo, subtitulo, conductor = false, children }) {
     return (
         <SafeAreaView style={estilos.pantalla}>
+            <StatusBar barStyle="dark-content" />
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={estilos.contenido}>
                 <View style={[estilos.cabecera, conductor && estilos.cabeceraConductor]}>
                     <Text style={estilos.marca}>RSU · {conductor ? 'Operaciones' : 'Servicio municipal'}</Text>

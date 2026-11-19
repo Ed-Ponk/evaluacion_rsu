@@ -86,7 +86,22 @@ export default function Conductor() {
             guardarError('Activa el permiso de ubicación para registrar un punto.');
             return;
         }
-        const punto = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        let completar;
+        const lectura = new Promise(resolve => { completar = resolve; });
+        const limite = setTimeout(() => completar(null), 15000);
+        let suscripcion;
+        let punto;
+        try {
+            suscripcion = await Location.watchPositionAsync({
+                accuracy: Location.Accuracy.High,
+                mayShowUserSettingsDialog: false,
+            }, completar);
+            punto = await lectura;
+        } finally {
+            clearTimeout(limite);
+            suscripcion?.remove();
+        }
+        if (!punto) throw new Error('No se obtuvo una lectura de ubicación. Inténtalo en un lugar con señal.');
         const resultado = await enviar(`recorridos/${panel.actual.id}/puntos`, { puntos: [{
             lat: punto.coords.latitude, lng: punto.coords.longitude, precision: punto.coords.accuracy,
             momento: new Date(punto.timestamp).toISOString(),
