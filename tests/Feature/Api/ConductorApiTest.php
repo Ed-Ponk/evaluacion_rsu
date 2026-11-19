@@ -138,6 +138,13 @@ class ConductorApiTest extends TestCase
             ->assertOk();
         $this->getJson($consulta)->assertOk()->assertJsonPath('programaciones.0.estado', 'completado');
         $this->assertDatabaseHas('trips', ['id' => $recorrido, 'status' => Recorrido::COMPLETADO]);
+
+        $this->app['auth']->forgetGuards();
+        $this->flushHeaders()->actingAs(User::factory()->create())
+            ->get(route('admin.programaciones.historial', $programacion))
+            ->assertOk()
+            ->assertSee('Recorrido móvil')
+            ->assertSee('Completado');
     }
 
     public function test_el_token_movil_expira(): void

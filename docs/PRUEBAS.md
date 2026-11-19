@@ -19,7 +19,7 @@ Se validaron por HTTP local `/up` y consulta con 200, panel invitado con 302 y c
 
 Una segunda prueba, sobre la copia persistente y con datos ficticios, usó el login HTTP, consultó la programación 29 de la zona 5, inició el recorrido 1, registró un punto GPS, cerró con una observación y revocó el token. Las lecturas ciudadanas sucesivas devolvieron `programado`, `en_ruta` y `completado`.
 
-El login web con CSRF y sesión de demostración devolvió 200 en el panel y en el listado de programaciones. Veinte lecturas secuenciales de una zona con datos, en el mismo PC, dieron una mediana de 24,6 ms y un percentil 95 de 27,5 ms. La muestra mide el cliente HTTP y el servidor en conjunto, con un solo usuario.
+El login web con CSRF y sesión de demostración devolvió 200 en el panel y en el listado de programaciones. El historial de la programación 29 devolvió 200 y el estado Completado. Un proceso PHP nuevo recuperó el mismo estado desde SQLite. Veinte lecturas secuenciales de una zona con datos, en el mismo PC, dieron una mediana de 24,6 ms y un percentil 95 de 27,5 ms. La muestra mide el cliente HTTP y el servidor en conjunto, con un solo usuario.
 
 ## Prueba en dos dispositivos
 

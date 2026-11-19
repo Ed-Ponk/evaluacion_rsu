@@ -5,6 +5,15 @@
 <div class="t-resumen-grupo">
     <div><small>Fecha</small><strong>{{ $programacion->date->format('d/m/Y') }}</strong></div>
     <div><small>Estado</small><strong>{{ \App\Models\Programacion::ESTADOS[$programacion->status] ?? $programacion->status }}</strong></div>
+    <div>
+        <small>Recorrido móvil</small>
+        @if ($recorrido = $programacion->recorrido)
+            <strong>{{ \App\Models\Recorrido::ESTADOS[$recorrido->status] ?? $recorrido->status }}</strong>
+            <span>{{ $recorrido->started_at->format('d/m/Y H:i') }}{{ $recorrido->ended_at ? ' – '.$recorrido->ended_at->format('d/m/Y H:i') : '' }}</span>
+        @else
+            <strong>Sin recorrido registrado</strong>
+        @endif
+    </div>
     <div><small>Grupo</small><strong>{{ $programacion->grupo?->name ?? '—' }}</strong></div>
     <div><small>Zona</small><strong>{{ $programacion->zona?->name }}</strong></div>
     <div><small>Turno</small><strong>{{ $programacion->turno?->name }}

@@ -383,7 +383,7 @@ class ProgramacionController extends Controller
     /** Detalle y historial de cambios (ventana emergente). */
     public function historial(string $id)
     {
-        $programacion = Programacion::with(['grupo', 'zona', 'turno', 'vehiculo', 'conductor', 'ayudantes'])->findOrFail($id);
+        $programacion = Programacion::with(['grupo', 'zona', 'turno', 'vehiculo', 'conductor', 'ayudantes', 'recorrido'])->findOrFail($id);
 
         $texto = new DescripcionDeBitacora;
         $cambios = Bitacora::with('usuario')
