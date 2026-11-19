@@ -57,6 +57,6 @@ Usa un cliente Expo Go compatible con SDK 54 o un build de desarrollo. Para gene
 
 Para pruebas USB y emulador en el mismo PC, genera con `EXPO_PUBLIC_RSU_API_URL=http://127.0.0.1:8102`, levanta Laravel en ese puerto y ejecuta `adb reverse tcp:8102 tcp:8102` en cada dispositivo autorizado. La excepción HTTP nativa se limita a loopback en Android. Usa HTTPS para orígenes de Wi-Fi o de otros entornos.
 
-En Windows, coloca la copia de compilación en una ruta física corta. Ninja puede superar el límite de 260 caracteres de los archivos generados y Gradle puede mezclar rutas si usas una letra virtual.
+En Windows, coloca la copia de compilación y `GRADLE_USER_HOME` en rutas físicas cortas. Ninja puede superar el límite de 260 caracteres en los archivos generados y en las dependencias extraídas. Gradle puede mezclar rutas si usas una letra virtual.
 
 En macOS con Xcode, `npx expo prebuild --platform ios --clean` y `npx expo run:ios` permiten ensayar en simulador. Para dispositivo físico, verifica firma y aprovisionamiento en Xcode antes de distribuir.
