@@ -22,6 +22,7 @@ use Database\Seeders\VehiculoSeeder;
 use Database\Seeders\ZonaSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /** Avance 6: API de la app móvil del conductor (login, programaciones, recorrido con GPS e historial). */
@@ -115,6 +116,91 @@ class ConductorApiTest extends TestCase
     }
 
     /* ------------------------------ acceso ------------------------------ */
+
+    public function test_v3_ciudadano_sigue_califica_y_solo_ve_informacion_autorizada(): void
+    {
+        config(['rsu.demostracion' => true]);
+        [$conductor, $programacion, $token] = $this->equipoListo();
+        $base = '/api/v1/ciudadano';
+        $datos = ['dni' => '01234567', 'name' => 'Ana', 'last_name' => 'Prueba',
+            'email' => 'vecina@rsu.test', 'password' => 'clave-para-prueba', 'zone_id' => $programacion->zone_id];
+        $this->postJson("$base/registro", [])->assertUnprocessable()
+            ->assertJsonValidationErrors(array_keys($datos));
+        $sesion = $this->postJson("$base/registro", $datos)->assertCreated()
+            ->assertJsonPath('ciudadano.dni', '01234567')->assertJsonMissingPath('ciudadano.password')->json('token');
+        $this->postJson("$base/registro", $datos)->assertJsonValidationErrors(['dni', 'email']);
+        $this->postJson("$base/login", ['email' => $conductor->email, 'password' => 'secret123'])->assertUnprocessable();
+        $this->postJson("$base/login", ['email' => $datos['email'], 'password' => $datos['password']])->assertOk();
+        $llamar = function ($metodo, $ruta, $cuerpo = []) use ($base, $sesion) {
+            $this->app['auth']->forgetGuards();
+
+            return $this->withToken($sesion)->{$metodo.'Json'}($base.$ruta, $cuerpo);
+        };
+        $url = "/programaciones/{$programacion->id}";
+        $llamar('get', $url)->assertOk()->assertJsonPath('data.recorrido', null);
+        $llamar('post', "$url/valoracion", ['stars' => 4])->assertConflict();
+        $this->api('get', 'perfil', $sesion)->assertForbidden();
+        $r = $this->api('post', "programaciones/{$programacion->id}/recorrido", $token)->assertCreated()->json('data.id');
+        $punto = ['lat' => -6.77, 'lng' => -79.84, 'momento' => now()->toIso8601String(),
+            'operacion' => (string) Str::uuid()];
+        $this->api('post', "recorridos/$r/puntos", $token, ['puntos' => [$punto, $punto]])
+            ->assertOk()->assertJsonPath('registrados', 1)->assertJsonPath('repetidos', 1);
+        $this->api('post', "recorridos/$r/puntos", $token, ['puntos' => [$punto]])
+            ->assertOk()->assertJsonPath('repetidos', 1);
+        $llamar('get', $url)->assertOk()->assertJsonPath('data.estado', 'en_curso')
+            ->assertJsonCount(1, 'data.recorrido.puntos')->assertDontSee($conductor->email);
+        $this->api('post', "recorridos/$r/finalizar", $token, ['observacion' => 'Ruta terminada'])->assertOk();
+        $llamar('post', "$url/valoracion", ['stars' => 6])->assertUnprocessable();
+        $llamar('post', "$url/valoracion", ['stars' => 4, 'comment' => 'A tiempo', 'citizen_id' => 999])
+            ->assertOk()->assertJsonPath('votos', 1);
+        $llamar('post', "$url/valoracion", ['stars' => 4, 'comment' => 'A tiempo'])->assertOk()->assertJsonPath('votos', 1);
+        $llamar('post', "$url/valoracion", ['stars' => 5])->assertConflict();
+        $this->app['auth']->forgetGuards();
+        $segundo = $this->postJson("$base/registro", array_replace($datos, ['dni' => '01234568', 'email' => 'otra@rsu.test']))
+            ->assertCreated()->json('token');
+        $this->app['auth']->forgetGuards();
+        $this->withToken($segundo)->postJson($base.$url.'/valoracion', ['stars' => 5])
+            ->assertOk()->assertJsonPath('votos', 2)->assertJsonPath('promedio', 4.5);
+        $this->app['auth']->forgetGuards();
+        $this->withToken($segundo)->getJson($base.$url)->assertOk()->assertJsonPath('data.recorrido.valoracion_propia.comment', null);
+        $llamar('get', '/historial')->assertOk()->assertJsonPath('data.0.votos', 2);
+        config(['rsu.demostracion' => false]);
+        $llamar('get', $url)->assertOk()->assertJsonPath('data.placa', null)->assertJsonCount(0, 'data.recorrido.puntos');
+        $llamar('post', '/logout')->assertNoContent();
+        $llamar('get', '/perfil')->assertUnauthorized();
+    }
+
+    public function test_v3_ubicacion_en_borde_y_cuidado_de_la_zona_anterior(): void
+    {
+        [$conductor, $programacion, $token] = $this->equipoListo();
+        $base = '/api/v1/ciudadano';
+        $zona = $programacion->zona;
+        [$lat, $lng] = $zona->vertices()[0];
+        $this->postJson("$base/zonas/ubicar", compact('lat', 'lng'))
+            ->assertOk()->assertJsonFragment(['id' => $zona->id]);
+        $this->postJson("$base/zonas/ubicar", ['lat' => 0, 'lng' => 0])->assertExactJson(['data' => []]);
+        $this->postJson("$base/zonas/ubicar", ['lat' => 91, 'lng' => 0])->assertUnprocessable();
+        $otra = Zona::where('id', '!=', $zona->id)->firstOrFail();
+        $datos = ['dni' => '01234567', 'name' => 'Ana', 'last_name' => 'Prueba',
+            'email' => 'vecina@rsu.test', 'password' => 'clave-para-prueba', 'zone_id' => $otra->id];
+        $sesion = $this->postJson("$base/registro", $datos)->assertCreated()->json('token');
+        $url = "$base/programaciones/{$programacion->id}";
+        $llamar = function ($metodo, $ruta, $cuerpo = []) use ($sesion) {
+            $this->app['auth']->forgetGuards();
+
+            return $this->withToken($sesion)->{$metodo.'Json'}($ruta, $cuerpo);
+        };
+        $llamar('get', $url)->assertNotFound();
+        $llamar('post', "$base/zona", ['zone_id' => $zona->id])->assertOk();
+        $llamar('get', $url)->assertOk();
+        $r = $this->api('post', "programaciones/{$programacion->id}/recorrido", $token)->assertCreated()->json('data.id');
+        $this->travel(1)->minutes();
+        $this->api('post', "recorridos/$r/finalizar", $token, ['observacion' => 'Ruta terminada'])->assertOk();
+        $this->travel(1)->minutes();
+        $llamar('post', "$base/zona", ['zone_id' => $otra->id])->assertOk();
+        $llamar('get', $url)->assertOk()->assertJsonPath('data.estado', 'completado');
+        $llamar('get', "$base/historial")->assertOk()->assertJsonPath('data.0.id', $programacion->id);
+    }
 
     public function test_la_consulta_ciudadana_refleja_el_recorrido_sin_datos_personales(): void
     {

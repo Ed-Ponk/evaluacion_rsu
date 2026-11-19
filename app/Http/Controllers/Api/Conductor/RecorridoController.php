@@ -62,26 +62,41 @@ class RecorridoController extends Controller
             'puntos.*.lng' => ['required', 'numeric', 'between:-180,180'],
             'puntos.*.precision' => ['nullable', 'numeric', 'min:0', 'max:100000'],
             'puntos.*.momento' => ['required', 'date'],
+            'puntos.*.operacion' => ['nullable', 'uuid'],
         ]);
 
-        $registrados = DB::transaction(function () use ($request, $recorrido, $datos) {
+        [$registrados, $repetidos, $descartados] = DB::transaction(function () use ($request, $recorrido, $datos) {
             $r = $this->delConductor($request, $recorrido, bloquear: true);
             abort_if(! $r->enCurso(), 422, 'El recorrido ya fue finalizado: no se registran más ubicaciones.');
 
             return $this->agregarPuntos($r, $datos['puntos']);
-        });
+        }, 3);
 
-        return response()->json(['registrados' => $registrados, 'descartados' => count($datos['puntos']) - $registrados]);
+        $respuesta = ['registrados' => $registrados, 'descartados' => $descartados];
+        if (array_filter(array_column($datos['puntos'], 'operacion'))) {
+            $respuesta['repetidos'] = $repetidos;
+        }
+
+        return response()->json($respuesta);
     }
 
-    private function agregarPuntos(Recorrido $r, array $puntos): int
+    private function agregarPuntos(Recorrido $r, array $puntos): array
     {
         // Solo puntos tomados durante el recorrido (con un minuto de margen por la diferencia de relojes).
         $desde = $r->started_at->copy()->subMinute();
-        $hasta = now()->addMinute();
+        $hasta = now()->addMinute()->min($r->programacion->fin());
         $filas = [];
+        $registradas = $r->puntos()->whereIn('operation_id', array_filter(array_column($puntos, 'operacion')))
+            ->pluck('operation_id')->map(fn ($id) => strtolower($id))->flip()->all();
+        $repetidos = 0;
 
         foreach ($puntos as $punto) {
+            $operacion = isset($punto['operacion']) ? strtolower($punto['operacion']) : null;
+            if ($operacion !== null && isset($registradas[$operacion])) {
+                $repetidos++;
+
+                continue;
+            }
             $momento = Carbon::parse($punto['momento'])->setTimezone(config('app.timezone'));
 
             if ($momento->lt($desde) || $momento->gt($hasta)) {
@@ -90,19 +105,23 @@ class RecorridoController extends Controller
 
             $filas[] = [
                 'trip_id' => $r->id,
+                'operation_id' => $operacion,
                 'latitude' => round((float) $punto['lat'], 7),
                 'longitude' => round((float) $punto['lng'], 7),
                 'accuracy' => isset($punto['precision']) ? round((float) $punto['precision'], 2) : null,
                 'recorded_at' => $momento->format('Y-m-d H:i:s'),
                 'created_at' => now(),
             ];
+            if ($operacion !== null) {
+                $registradas[$operacion] = true;
+            }
         }
 
         if ($filas) {
             PuntoRecorrido::insert($filas);
         }
 
-        return count($filas);
+        return [count($filas), $repetidos, count($puntos) - count($filas) - $repetidos];
     }
 
     /** Cierra el recorrido con la observación del conductor y detiene el registro de coordenadas. */

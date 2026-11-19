@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Personal;
 use App\Models\TipoPersonal;
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -19,7 +20,7 @@ class SoloConductor
     {
         $usuario = $request->user();
 
-        if (! $usuario || ! ($usuario->currentAccessToken() instanceof PersonalAccessToken) || ! $usuario->tokenCan('conductor')) {
+        if (! ($usuario instanceof User) || ! ($usuario->currentAccessToken() instanceof PersonalAccessToken) || ! $usuario->tokenCan('conductor')) {
             return $this->rechazo('Esta sección es solo para conductores.');
         }
 

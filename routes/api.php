@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Controllers\Api\CiudadanoController;
 use App\Http\Controllers\Api\Conductor\AccesoController;
 use App\Http\Controllers\Api\Conductor\ProgramacionController;
 use App\Http\Controllers\Api\Conductor\RecorridoController;
 use App\Http\Controllers\Api\ConsultaRecoleccionController;
+use App\Http\Middleware\SoloCiudadano;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -12,6 +14,23 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('v1/recoleccion', [ConsultaRecoleccionController::class, 'index'])->middleware('throttle:60,1')->name('api.recoleccion.index');
+Route::get('v1/salud', [ConsultaRecoleccionController::class, 'salud'])->middleware('throttle:30,1')->name('api.salud');
+
+Route::prefix('v1/ciudadano')->name('api.ciudadano.')->controller(CiudadanoController::class)->group(function () {
+    Route::post('registro', 'registrar')->middleware('throttle:6,1,ciudadano-registro')->name('registro');
+    Route::post('login', 'login')->middleware('throttle:6,1,ciudadano-login')->name('login');
+    Route::get('zonas', 'zonas')->middleware('throttle:60,1')->name('zonas');
+    Route::post('zonas/ubicar', 'ubicar')->middleware('throttle:30,1')->name('ubicar');
+    Route::middleware(['auth:sanctum', SoloCiudadano::class, 'throttle:120,1'])->group(function () {
+        Route::get('perfil', 'perfil')->name('perfil');
+        Route::post('logout', 'logout')->name('logout');
+        Route::post('zona', 'cambiarZona')->name('zona');
+        Route::get('programaciones', 'programaciones')->name('programaciones');
+        Route::get('programaciones/{programacion}', 'detalle')->whereNumber('programacion')->name('detalle');
+        Route::post('programaciones/{programacion}/valoracion', 'calificar')->whereNumber('programacion')->name('valoracion');
+        Route::get('historial', 'historial')->name('historial');
+    });
+});
 
 Route::prefix('conductor')->name('api.conductor.')->group(function () {
     Route::post('login', [AccesoController::class, 'login'])->middleware('throttle:6,1')->name('login');

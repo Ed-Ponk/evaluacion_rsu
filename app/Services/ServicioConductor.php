@@ -164,6 +164,7 @@ class ServicioConductor
                 'momento' => $pt->recorded_at->toIso8601String(),
             ])->all(),
             'segundos_entre_puntos' => (int) config('proyecto.recorridos.segundos_entre_puntos', 5),
+            'captura_hasta' => $p->fin()->toIso8601String(),
         ];
     }
 

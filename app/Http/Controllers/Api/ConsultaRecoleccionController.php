@@ -10,6 +10,11 @@ use Illuminate\Http\Request;
 
 class ConsultaRecoleccionController
 {
+    public function salud(): JsonResponse
+    {
+        return response()->json(['servicio' => 'rsu', 'version' => 3]);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $filtros = $request->validate([

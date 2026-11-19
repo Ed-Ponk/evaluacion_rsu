@@ -42,6 +42,18 @@
     @endif
 </div>
 
+@if ($programacion->recorrido)
+    <section class="mb-3" aria-label="Ubicaciones del recorrido">
+        <p>Observación de cierre: {{ $programacion->recorrido->observation ?? 'Pendiente' }}</p>
+        <details>
+            <summary>{{ $cantidadGps }} ubicaciones guardadas (hasta las 100 más recientes)</summary>
+            @foreach ($puntosGps as $punto)
+                <div>{{ $punto->recorded_at->format('d/m/Y H:i:s') }} · {{ $punto->latitude }}, {{ $punto->longitude }}</div>
+            @endforeach
+        </details>
+    </section>
+@endif
+
 <h6 class="fw-bold mb-2"><i class="bi bi-clock-history me-1"></i> Historial de cambios</h6>
 
 @if ($cambios->isEmpty())
