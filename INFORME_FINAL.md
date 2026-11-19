@@ -40,8 +40,8 @@
 | Seguridad revisada | PARCIAL | Expiración, alcance y dependencias PHP. Auditoría npm móvil y pruebas de despliegue pendientes |
 | Instalación reproducible | APROBADO | PHP/SQLite, Expo y Gradle verificados en Windows con rutas cortas |
 | Cambios registrados mediante Git | APROBADO | Rama `feat/mobile-platform-integration` |
-| Rama publicada con permisos | PARCIAL | Rama local verificada, publicación de laboratorio en trámite |
-| Pull Request preparado o creado | APROBADO | [Texto de revisión](docs/PULL_REQUEST.md) |
+| Rama publicada con permisos | APROBADO | `origin/feat/mobile-platform-integration` |
+| Pull Request preparado o creado | APROBADO | [PR #1 en borrador](https://github.com/Ed-Ponk/rsu-proyecto/pull/1) |
 | Informe con evidencias | APROBADO | Este documento y [pruebas](docs/PRUEBAS.md) |
 
 Consulta la [instalación](docs/DESPLIEGUE_GRATUITO.md) y el [plan manual](docs/PRUEBAS.md). Coste contratado S/ 0.
