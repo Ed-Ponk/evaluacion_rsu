@@ -1,5 +1,7 @@
 # RSU móvil
 
+Para los avances 06 y 07, consulta el [laboratorio V3](docs/V3_LABORATORIO.md), la [matriz de pantallas](docs/aceptacion/MATRIZ_REQUISITOS_AVANCE_06_07.md) y los [105 casos de aceptación](docs/aceptacion/RESULTADOS_ACEPTACION.csv).
+
 El panel administra personal, flota, zonas y programación de recolección. La app **RSU Recolección** consulta turnos por zona. **RSU Conductor** usa la programación y asistencia del mismo servidor para operar recorridos.
 
 Consulta la [arquitectura](docs/ARQUITECTURA.md), la [API](docs/API.md), la [instalación de laboratorio](docs/DESPLIEGUE_GRATUITO.md), las [pruebas](docs/PRUEBAS.md) y el [informe de aceptación](INFORME_FINAL.md). Los manuales de [cliente](docs/MANUAL_CLIENTE.md), [conductor](docs/MANUAL_CONDUCTOR.md) y [administrador](docs/MANUAL_ADMINISTRADOR.md) describen cada flujo.
