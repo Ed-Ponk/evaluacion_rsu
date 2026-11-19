@@ -5,4 +5,5 @@
 - Rama local `feat/mobile-platform-integration` avanzó mediante fast-forward a `842c295`. Aplicadas 16 migraciones sobre la base aislada de main.
 - Aplicaciones Expo y API de consulta implementadas. Flujo ligado a recorridos existentes y token de conductor.
 - Pruebas de regresión corregidas y prueba integrada incorporada. Ver [informe](INFORME_FINAL.md) para estado de entrega.
-- Publicación sujeta a cerrar controles críticos. Próximo punto de continuidad: validar instalación Android y datos en ambos dispositivos.
+- Builds e instalación Android validados en API 36. Recorrido iniciado, recuperado, registrado con GPS ficticio, cerrado y reflejado en la consulta ciudadana.
+- Próximo punto de continuidad para ampliar el piloto: teléfonos físicos, origen HTTPS, MySQL y actualización de dependencias móviles.

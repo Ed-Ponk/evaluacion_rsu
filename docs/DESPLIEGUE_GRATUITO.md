@@ -8,10 +8,10 @@ La alternativa elegida usa un PC existente y SQLite local. Coste contratado S/ 0
 | PC + Docker | MySQL y volúmenes previstos por el repositorio. | Requiere Docker y recursos adicionales. Revisar las interfaces publicadas por Compose. |
 | PC + Tailscale Personal | Acceso privado desde distintas redes. | Plan personal de USD 0 hasta 6 usuarios, sujeto a elegibilidad de uso personal. Requiere cuenta y clientes autorizados. [Precios](https://tailscale.com/pricing) |
 | Cloudflare Quick Tunnel | URL temporal desde otra red. Persistencia propia del PC. | Límite de 200 solicitudes en curso, sin SSE ni garantía de disponibilidad. Usar únicamente con un frontal que filtre las rutas expuestas. [Quick Tunnels](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/) |
-| Render Free | Servicio HTTPS y Postgres de prueba. | Se duerme tras 15 min, disco efímero y Postgres gratuito caduca a los 30 días. MySQL y almacenamiento de archivos requieren resolver persistencia. [Límites](https://render.com/docs/free) |
+| Render Free | Servicio HTTPS y Postgres de prueba. | 750 horas por mes y espacio de trabajo, suspensión tras 15 min de inactividad, disco efímero y Postgres con caducidad a los 30 días. El exceso de transferencia puede facturarse si se agrega un medio de pago. MySQL y archivos persistentes requieren otra solución. [Límites](https://render.com/docs/free) |
 | Android + Termux | Experimento local condicionado a paquete y arquitectura. | Suspensión de procesos, batería, persistencia y disponibilidad sin validar. [Termux](https://termux.dev/) |
 
-Capacidad de transferencia, verificación de cuenta y tarjeta pueden depender del proveedor y del registro. No se activó ningún servicio externo.
+Condiciones consultadas el 19 de noviembre de 2026. Capacidad de transferencia, verificación de cuenta y tarjeta pueden depender del proveedor y del registro. No se activó ningún servicio externo.
 
 ## PC con Windows
 

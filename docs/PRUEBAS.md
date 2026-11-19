@@ -32,4 +32,8 @@ El login web con CSRF y sesión de demostración devolvió 200 en el panel y en 
 7. Finaliza con una observación y confirma **Recorrido completado** en la otra app. Comprueba el historial.
 8. Reinicia el servidor y verifica que los datos y estados existentes se conservan. Prueba en un segundo teléfono con otra cuenta y comprueba que no ve asignaciones ajenas.
 
-Quedan pendientes pruebas en dispositivo, accesibilidad con lector de pantalla, carga representativa, concurrencia en MySQL, reinicios y redes degradadas. La prueba operativa del panel conserva un caso incompleto para el conjunto de KPI pendiente.
+En el emulador Android 36 se ejecutó el flujo de inicio desde el APK, consulta ciudadana de En ruta, cierre forzado del proceso, recuperación del recorrido desde SecureStore y Laravel, GPS ficticio, cierre con observación y relectura ciudadana. SQLite confirmó la programación 30 completada y un punto asociado al recorrido 2. En el proceso de prueba se reprodujo una lectura GPS sin respuesta, que ahora tiene un límite de 15 segundos.
+
+Se quitó y restauró el reenvío ADB con el APK ciudadano final. La aplicación conservó el último resultado al fallar la consulta y se recuperó después de reconectar.
+
+Quedan pendientes teléfonos físicos, la ejecución nativa de iOS, lector de pantalla, carga representativa, concurrencia en MySQL y redes degradadas con latencia. La prueba operativa del panel conserva un caso incompleto para el conjunto de KPI pendiente.
