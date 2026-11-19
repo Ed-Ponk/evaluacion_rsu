@@ -93,10 +93,12 @@ class CorreccionesDeAuditoriaTest extends TestCase
 
     public function test_se_crea_un_administrador_con_contrasena_fuerte(): void
     {
-        $this->postJson(route('admin.usuarios.store'), ['name' => 'Otro Admin', 'email' => 'OTRO@rsu.test', 'password' => '12345678', 'password_confirmation' => '12345678', 'status' => 1])
+        $datos = ['name' => 'Otro', 'last_name' => 'Admin', 'dni' => '72345678', 'birthdate' => '1990-01-01',
+            'role' => User::ADMINISTRADOR, 'address' => 'Av. Principal 123', 'email' => 'OTRO@rsu.test', 'status' => 1];
+        $this->postJson(route('admin.usuarios.store'), $datos + ['password' => '12345678', 'password_confirmation' => '12345678'])
             ->assertStatus(422)->assertJsonValidationErrors('password');
 
-        $this->postJson(route('admin.usuarios.store'), ['name' => 'Otro Admin', 'email' => 'OTRO@rsu.test', 'password' => 'Clave1234x', 'password_confirmation' => 'Clave1234x', 'status' => 1])
+        $this->postJson(route('admin.usuarios.store'), $datos + ['password' => 'Clave1234x', 'password_confirmation' => 'Clave1234x'])
             ->assertOk();
 
         $this->assertDatabaseHas('users', ['email' => 'otro@rsu.test', 'status' => true]);
@@ -106,7 +108,10 @@ class CorreccionesDeAuditoriaTest extends TestCase
     {
         $this->deleteJson(route('admin.usuarios.destroy', $this->admin->id))->assertStatus(422);
 
-        $this->putJson(route('admin.usuarios.update', $this->admin->id), ['name' => 'Admin Principal', 'email' => $this->admin->email, 'status' => 0])
+        $this->putJson(route('admin.usuarios.update', $this->admin->id), [
+            'name' => 'Admin', 'last_name' => 'Principal', 'dni' => '72345678', 'birthdate' => '1990-01-01',
+            'role' => User::ADMINISTRADOR, 'address' => 'Av. Principal 123', 'email' => $this->admin->email, 'status' => 0,
+        ])
             ->assertStatus(422)->assertJsonValidationErrors('status');
 
         $this->assertEquals(1, $this->admin->fresh()->status);

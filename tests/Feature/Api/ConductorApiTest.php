@@ -116,6 +116,37 @@ class ConductorApiTest extends TestCase
 
     /* ------------------------------ acceso ------------------------------ */
 
+    public function test_la_consulta_ciudadana_refleja_el_recorrido_sin_datos_personales(): void
+    {
+        [$conductor, $programacion, $token] = $this->equipoListo();
+        $consulta = '/api/v1/recoleccion?zona='.$programacion->zone_id;
+
+        $this->getJson('/api/v1/recoleccion?zona=invalida')->assertUnprocessable();
+        $this->getJson('/api/v1/recoleccion?zona=9999999')->assertNotFound();
+        $this->getJson($consulta)->assertOk()->assertJsonPath('programaciones.0.estado', 'programado');
+
+        $recorrido = $this->api('post', "programaciones/{$programacion->id}/recorrido", $token)
+            ->assertCreated()->json('data.id');
+        $this->api('post', "recorridos/{$recorrido}/puntos", $token, [
+            'puntos' => [['lat' => -6.77, 'lng' => -79.84, 'momento' => now()->toIso8601String()]],
+        ])->assertOk()->assertJsonPath('registrados', 1);
+        $respuesta = $this->getJson($consulta)->assertOk()->assertJsonPath('programaciones.0.estado', 'en_ruta');
+        $this->assertSame(['id', 'inicio', 'fin', 'estado'], array_keys($respuesta->json('programaciones.0')));
+        $respuesta->assertDontSee($conductor->email)->assertDontSee('-79.84');
+
+        $this->api('post', "recorridos/{$recorrido}/finalizar", $token, ['observacion' => 'Ruta terminada'])
+            ->assertOk();
+        $this->getJson($consulta)->assertOk()->assertJsonPath('programaciones.0.estado', 'completado');
+        $this->assertDatabaseHas('trips', ['id' => $recorrido, 'status' => Recorrido::COMPLETADO]);
+    }
+
+    public function test_el_token_movil_expira(): void
+    {
+        $token = $this->token($this->persona());
+        $this->travel(25)->hours();
+        $this->api('get', 'perfil', $token)->assertUnauthorized();
+    }
+
     public function test_el_conductor_ingresa_con_su_correo_y_clave(): void
     {
         $conductor = $this->persona();

@@ -3,12 +3,15 @@
 use App\Http\Controllers\Api\Conductor\AccesoController;
 use App\Http\Controllers\Api\Conductor\ProgramacionController;
 use App\Http\Controllers\Api\Conductor\RecorridoController;
+use App\Http\Controllers\Api\ConsultaRecoleccionController;
 use Illuminate\Support\Facades\Route;
 
 /*
 | API de la app móvil del conductor (Avance 6). Todas las rutas quedan bajo /api/conductor.
 | Autenticación: token de Sanctum en la cabecera «Authorization: Bearer <token>».
 */
+
+Route::get('v1/recoleccion', [ConsultaRecoleccionController::class, 'index'])->middleware('throttle:60,1')->name('api.recoleccion.index');
 
 Route::prefix('conductor')->name('api.conductor.')->group(function () {
     Route::post('login', [AccesoController::class, 'login'])->middleware('throttle:6,1')->name('login');

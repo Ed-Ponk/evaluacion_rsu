@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Programacion;
 use App\Models\PuntoRecorrido;
 use App\Models\Recorrido;
+use App\Models\User;
 use App\Services\ServicioConductor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,6 +24,8 @@ class RecorridoController extends Controller
         $conductor = $request->attributes->get('conductor');
 
         $recorrido = DB::transaction(function () use ($conductor, $programacion) {
+            // Dos programaciones del mismo conductor comparten el bloqueo.
+            User::lockForUpdate()->findOrFail($conductor->id);
             // Bloquea la programación: dos toques seguidos en «Iniciar» no crean dos recorridos.
             $p = Programacion::where('driver_id', $conductor->id)->lockForUpdate()->find($programacion);
             abort_if(! $p, 404, 'No se encontró la programación.');
@@ -52,9 +55,6 @@ class RecorridoController extends Controller
     /** Recibe uno o varios puntos GPS (la app los acumula si se queda sin señal). */
     public function puntos(Request $request, int $recorrido): JsonResponse
     {
-        $r = $this->delConductor($request, $recorrido);
-        abort_if(! $r->enCurso(), 422, 'El recorrido ya fue finalizado: no se registran más ubicaciones.');
-
         $maximo = (int) config('proyecto.recorridos.max_puntos_por_lote', 500);
         $datos = $request->validate([
             'puntos' => ['required', 'array', 'min:1', "max:{$maximo}"],
@@ -64,12 +64,24 @@ class RecorridoController extends Controller
             'puntos.*.momento' => ['required', 'date'],
         ]);
 
+        $registrados = DB::transaction(function () use ($request, $recorrido, $datos) {
+            $r = $this->delConductor($request, $recorrido, bloquear: true);
+            abort_if(! $r->enCurso(), 422, 'El recorrido ya fue finalizado: no se registran más ubicaciones.');
+
+            return $this->agregarPuntos($r, $datos['puntos']);
+        });
+
+        return response()->json(['registrados' => $registrados, 'descartados' => count($datos['puntos']) - $registrados]);
+    }
+
+    private function agregarPuntos(Recorrido $r, array $puntos): int
+    {
         // Solo puntos tomados durante el recorrido (con un minuto de margen por la diferencia de relojes).
         $desde = $r->started_at->copy()->subMinute();
         $hasta = now()->addMinute();
         $filas = [];
 
-        foreach ($datos['puntos'] as $punto) {
+        foreach ($puntos as $punto) {
             $momento = Carbon::parse($punto['momento'])->setTimezone(config('app.timezone'));
 
             if ($momento->lt($desde) || $momento->gt($hasta)) {
@@ -90,7 +102,7 @@ class RecorridoController extends Controller
             PuntoRecorrido::insert($filas);
         }
 
-        return response()->json(['registrados' => count($filas), 'descartados' => count($datos['puntos']) - count($filas)]);
+        return count($filas);
     }
 
     /** Cierra el recorrido con la observación del conductor y detiene el registro de coordenadas. */
