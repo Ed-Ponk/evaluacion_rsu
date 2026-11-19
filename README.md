@@ -1,3 +1,9 @@
+# RSU móvil
+
+El panel administra personal, flota, zonas y programación de recolección. La app **RSU Recolección** consulta turnos por zona. **RSU Conductor** usa la programación y asistencia del mismo servidor para operar recorridos.
+
+Consulta la [arquitectura](docs/ARQUITECTURA.md), la [API](docs/API.md), la [instalación de laboratorio](docs/DESPLIEGUE_GRATUITO.md), las [pruebas](docs/PRUEBAS.md) y el [informe de aceptación](INFORME_FINAL.md). Los manuales de [cliente](docs/MANUAL_CLIENTE.md), [conductor](docs/MANUAL_CONDUCTOR.md) y [administrador](docs/MANUAL_ADMINISTRADOR.md) describen cada flujo.
+
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
 <p align="center">
