@@ -42,3 +42,8 @@ Thumbs.db
 /PROJECT.md
 /TEST_INFRA.md
 /TEST_READY.md
+/mobile/node_modules/
+/mobile/.expo/
+/mobile/android/
+/mobile/ios/
+/mobile/dist/
