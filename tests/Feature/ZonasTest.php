@@ -12,6 +12,7 @@ use App\Services\ReglasZona;
 use Database\Seeders\TipoPersonalSeeder;
 use Database\Seeders\ZonaSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 /** Avance 2: zonas con perímetro (polígono de coordenadas) y su mapa. */
@@ -304,5 +305,67 @@ class ZonasTest extends TestCase
 
         $this->assertFileExists(public_path('vendor/leaflet/leaflet.js'));
         $this->assertFileExists(public_path('vendor/leaflet-draw/leaflet.draw.js'));
+    }
+
+    /* ------------------------------ Avance 7: sectores y foto de la zona ------------------------------ */
+
+    public function test_guarda_los_sectores_uno_por_linea_sin_repetidos(): void
+    {
+        $this->ajax('post', route('admin.zonas.store'), $this->datos(['sectors' => "  Urb. Las Flores \n\nurb.  las flores\nAA.HH. Santa Rosa\r\nPueblo Joven Norte"]))->assertOk();
+
+        $zona = Zona::with('sectores')->firstWhere('name', 'Zona Prueba');
+        $this->assertSame(['Urb. Las Flores', 'AA.HH. Santa Rosa', 'Pueblo Joven Norte'], $zona->sectores->pluck('name')->all());
+        $this->assertSame([1, 2, 3], $zona->sectores->pluck('position')->all());
+    }
+
+    public function test_al_editar_se_reemplazan_los_sectores_y_vacio_los_quita(): void
+    {
+        $this->ajax('post', route('admin.zonas.store'), $this->datos(['sectors' => "A\nB"]))->assertOk();
+        $zona = Zona::first();
+
+        $this->ajax('put', route('admin.zonas.update', $zona->id), $this->datos(['sectors' => 'C']))->assertOk();
+        $this->assertSame(['C'], $zona->fresh()->sectores->pluck('name')->all());
+
+        $this->ajax('put', route('admin.zonas.update', $zona->id), $this->datos(['sectors' => '']))->assertOk();
+        $this->assertCount(0, $zona->fresh()->sectores);
+    }
+
+    public function test_limita_el_largo_y_la_cantidad_de_sectores(): void
+    {
+        $this->ajax('post', route('admin.zonas.store'), $this->datos(['sectors' => str_repeat('a', 101)]))->assertStatus(422)->assertJsonValidationErrors('sectors');
+        $this->ajax('post', route('admin.zonas.store'), $this->datos(['sectors' => implode("\n", array_map(fn ($i) => "Sector {$i}", range(1, 31)))]))
+            ->assertStatus(422)->assertJsonValidationErrors('sectors');
+        $this->assertDatabaseCount('zones', 0);
+    }
+
+    public function test_sube_cambia_y_quita_la_foto_de_la_zona(): void
+    {
+        $this->ajax('post', route('admin.zonas.store'), $this->datos(['photo' => UploadedFile::fake()->image('zona.jpg', 400, 300)]))->assertOk();
+        $zona = Zona::first();
+        $primera = $zona->photo_path;
+        $this->assertStringStartsWith('/uploads/zone_photos/', $primera);
+        $this->assertFileExists(public_path(ltrim($primera, '/')));
+
+        $this->ajax('post', route('admin.zonas.update', $zona->id), $this->datos(['_method' => 'PUT', 'photo' => UploadedFile::fake()->image('otra.png', 400, 300)]))->assertOk();
+        $segunda = $zona->fresh()->photo_path;
+        $this->assertNotSame($primera, $segunda);
+        $this->assertFileDoesNotExist(public_path(ltrim($primera, '/')));
+
+        // Guardar sin foto conserva la actual.
+        $this->ajax('put', route('admin.zonas.update', $zona->id), $this->datos())->assertOk();
+        $this->assertSame($segunda, $zona->fresh()->photo_path);
+
+        $this->ajax('put', route('admin.zonas.update', $zona->id), $this->datos(['remove_photo' => 1]))->assertOk();
+        $this->assertNull($zona->fresh()->photo_path);
+        $this->assertFileDoesNotExist(public_path(ltrim($segunda, '/')));
+    }
+
+    public function test_rechaza_una_foto_que_no_es_imagen_o_pesa_demasiado(): void
+    {
+        $this->ajax('post', route('admin.zonas.store'), $this->datos(['photo' => UploadedFile::fake()->create('documento.pdf', 100, 'application/pdf')]))
+            ->assertStatus(422)->assertJsonValidationErrors('photo');
+        $this->ajax('post', route('admin.zonas.store'), $this->datos(['photo' => UploadedFile::fake()->image('grande.jpg')->size(3000)]))
+            ->assertStatus(422)->assertJsonValidationErrors('photo');
+        $this->assertDatabaseCount('zones', 0);
     }
 }

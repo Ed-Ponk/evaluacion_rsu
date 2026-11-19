@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\CabecerasDeSeguridad;
 use App\Http\Middleware\SinTokenEnElPanel;
+use App\Http\Middleware\SoloCiudadano;
 use App\Http\Middleware\SoloConductor;
 use App\Support\MensajesDeBase;
 use Illuminate\Database\QueryException;
@@ -23,7 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectUsersTo('/admin');
         $middleware->appendToGroup('web', CabecerasDeSeguridad::class);
         $middleware->prependToGroup('web', SinTokenEnElPanel::class);
-        $middleware->alias(['conductor' => SoloConductor::class]);
+        $middleware->alias(['conductor' => SoloConductor::class, 'ciudadano' => SoloCiudadano::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Dos personas guardan lo mismo en el mismo instante: la validación pasa en ambas y la base de datos rechaza la segunda.
