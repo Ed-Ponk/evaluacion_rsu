@@ -342,3 +342,5 @@ The Laravel framework is open-sourced software licensed under the [MIT license](
 # Descargas de RSU RC1
 
 Los APK de Conductor y Ciudadano, el kit y los hashes se distribuyen como prerelease de laboratorio. [GitHub Releases](https://github.com/Ed-Ponk/rsu-proyecto/releases) · [Instalación y alcance](docs/despliegue/RC1.md)
+
+El lanzador portátil automatiza las operaciones del anfitrión Windows y conserva una sola base activa durante una transferencia. [RSU Portable Cloud](docs/despliegue/PORTABLE_CLOUD.md)
