@@ -33,7 +33,9 @@ En Android 36 emulado, el conductor solicitó el cierre con la red cortada, term
 
 ## Resultados de esta ronda
 
-- SQLite registró 187 aprobadas y seis omitidas. MySQL registró 42 aprobadas en API y zonas. El formulario HTTP de una zona confirmó sector y fotografía, y la imagen siguió disponible después del reinicio del proceso PHP.
-- Los dos APK Android 1.2.0 de laboratorio proceden de `5b30cbb`. En ambos se comprobó la capa vial en el mismo recorrido. La app del conductor y el historial administrativo coincidieron en horas, observación y 46 coordenadas. El APK ciudadano guardó y mostró su valoración e historial.
-- La [matriz acumulada](RESULTADOS_V4_2.csv) conserva V3 y V4.1, y registra seis casos aprobados en esta ronda, 15 bloqueados y 108 pendientes. B2 y B7 requieren evidencia completa sobre la última compilación. El ensayo de cierre queda identificado por separado.
+- Las regresiones completas de SQLite y MySQL registraron 187 aprobadas y seis omitidas cada una. La primera ejecución completa en MySQL expuso un fixture de asistencias que fijaba el ID del turno. La segunda lo obtuvo del catálogo y pasó. El formulario HTTP confirmó sector y fotografía, y la imagen siguió disponible tras reiniciar PHP.
+- La compilación `5b30cbb` mostró la capa vial y permitió cotejar horas, observación y 46 coordenadas con el panel. Los dos APK 1.2.0 del paquete actualizado proceden de `817086b`. El manifiesto y la matriz identifican la compilación usada en cada prueba.
+- B7 reprodujo un arranque offline que requería volver a abrir la app y un registro de ubicación que podía quedar obsoleto. Con las dos correcciones, la versión `817086b` recuperó 12 coordenadas tras reconectar en 8,3 segundos. Se cotejaron ambos APK y el panel. Los 12 UUID de MySQL fueron distintos.
+- B2 volvió a pasar con `817086b` sobre una copia migrada de Avance 07. La pantalla mostró cero puntos y búsqueda. MySQL recibió la primera coordenada simulada y el mismo APK mostró el estado de registro.
+- La [matriz acumulada](RESULTADOS_V4_2.csv) conserva V3 y V4.1, y registra ocho casos aprobados en esta ronda, 15 bloqueados y 106 pendientes. El ensayo de cierre queda identificado por separado.
 - El servidor de ensayo se verificó desde Windows en `http://127.0.0.1:8111` y desde Android emulado en `http://10.0.2.2:8111`. MySQL permaneció en loopback. Infraestructura contratada adicional: S/ 0. La prueba física, LAN/hotspot y HTTPS externo siguen sin certificar.

@@ -5,6 +5,7 @@
 - Se conciliaron sectores, foto de zona, estado de ciudadanía y valoraciones desde `avance-07-api` en una rama aislada. Se verificaron instalación limpia y migraciones MySQL desde V4.1 y el esquema paralelo.
 - Se implementó el cierre durable. El ensayo Android conservó la solicitud al terminar el proceso sin red y confirmó 12 puntos al reconectar. El segundo envío conservó la hora original.
 - Se incorporó un recorte vial local de Chiclayo con atribución ODbL. Se recompilaron ambas variantes Android y se cotejaron 46 ubicaciones con el panel.
+- B7 reprodujo un fallo después de abrir la app sin red. Se corrigieron la revalidación de sesión y el registro GPS obsoleto. La reprueba automática confirmó 12 coordenadas en MySQL, Ciudadano y el panel.
 - Se actualizaron el [backlog](docs/aceptacion/CIERRE_V4_2.md), la [matriz acumulada](docs/aceptacion/RESULTADOS_V4_2.csv) y las [intervenciones de red pendientes](docs/despliegue/INTERVENCIONES_V4_2.md).
 
 ## V4.1
