@@ -14,7 +14,8 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('v1/recoleccion', [ConsultaRecoleccionController::class, 'index'])->middleware('throttle:60,1')->name('api.recoleccion.index');
-Route::get('v1/salud', [ConsultaRecoleccionController::class, 'salud'])->middleware('throttle:30,1')->name('api.salud');
+// El limitador de Laravel usa MySQL en despliegue. El frontal limita esta ruta antes de llegar a PHP.
+Route::get('v1/salud', [ConsultaRecoleccionController::class, 'salud'])->name('api.salud');
 
 Route::prefix('v1/ciudadano')->name('api.ciudadano.')->controller(CiudadanoController::class)->group(function () {
     Route::post('registro', 'registrar')->middleware('throttle:6,1,ciudadano-registro')->name('registro');

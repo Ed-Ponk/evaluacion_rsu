@@ -7,12 +7,22 @@ use App\Models\Recorrido;
 use App\Models\Zona;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use PDOException;
 
 class ConsultaRecoleccionController
 {
     public function salud(): JsonResponse
     {
-        return response()->json(['servicio' => 'rsu', 'version' => 3]);
+        $respuesta = ['servicio' => 'rsu', 'version' => 3];
+
+        try {
+            DB::table('migrations')->select('id')->limit(1)->get();
+        } catch (PDOException) {
+            return response()->json($respuesta, 503)->header('Cache-Control', 'no-store');
+        }
+
+        return response()->json($respuesta)->header('Cache-Control', 'no-store');
     }
 
     public function index(Request $request): JsonResponse

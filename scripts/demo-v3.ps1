@@ -1,10 +1,14 @@
 param(
-    [ValidateSet('Preparar','Iniciar','Detener','Asistencia','Respaldar')][string]$Accion = 'Iniciar',
+    [ValidateSet('Preparar','Iniciar','Detener','Estado','Asistencia','Respaldar','Restaurar')][string]$Accion = 'Iniciar',
     [string]$Base = 'rsu_v3_demo',
     [string]$Escucha = '127.0.0.1',
     [int]$Puerto = 8104,
     [string]$Php = 'php',
-    [string]$MysqlDump = 'mysqldump'
+    [string]$MysqlDump = 'mysqldump',
+    [string]$Mysql = 'mysql',
+    [string]$Respaldo,
+    [string]$Sha256,
+    [ValidateRange(1,4096)][int]$MaxRespaldoMB = 512
 )
 $ErrorActionPreference = 'Stop'
 if ($Base -notmatch '^rsu_v3_demo(?:_[a-z0-9_]+)?$') { throw 'Usa una base de demostración dedicada rsu_v3_demo.' }
@@ -23,6 +27,11 @@ $env:APP_URL = "http://${Escucha}:$Puerto"
 Push-Location $Repo
 try {
     switch ($Accion) {
+        Estado {
+            $salud = Invoke-RestMethod "${env:APP_URL}/api/v1/salud" -TimeoutSec 5
+            if ($salud.servicio -ne 'rsu' -or $salud.version -ne 3) { throw 'El puerto no devuelve la API RSU esperada.' }
+            [pscustomobject]@{ Origen = $env:APP_URL; API = $salud.version; MySQL = 'Disponible' }
+        }
         Preparar {
             if ($env:RSU_DEMO_PASSWORD.Length -lt 12) { throw 'Define RSU_DEMO_PASSWORD con una clave ficticia propia.' }
             if (!$env:ADMIN_PASSWORD -or !$env:ADMIN_EMAIL) { throw 'Define ADMIN_EMAIL y ADMIN_PASSWORD exclusivos para el ensayo.' }
@@ -64,11 +73,40 @@ try {
         }
         Respaldar {
             $env:MYSQL_PWD = $env:DB_PASSWORD
+            $archivo = Join-Path $Repo ("storage/logs/$Base-" + (Get-Date -Format 'yyyyMMddHHmmssfff') + '.sql')
+            $parcial = "$archivo.part"
             try {
-                $archivo = Join-Path $Repo ("storage/logs/$Base-" + (Get-Date -Format 'yyyyMMddHHmmss') + '.sql')
-                & $MysqlDump "--host=$env:DB_HOST" "--port=$env:DB_PORT" "--user=$env:DB_USERNAME" --single-transaction --no-tablespaces "--result-file=$archivo" $Base
+                & $MysqlDump "--host=$env:DB_HOST" "--port=$env:DB_PORT" "--user=$env:DB_USERNAME" --single-transaction --no-tablespaces "--result-file=$parcial" $Base
                 if ($LASTEXITCODE -ne 0) { throw 'Falló el respaldo SQL.' }
-                Write-Output $archivo
+                $bytes = (Get-Item -LiteralPath $parcial).Length
+                if ($bytes -eq 0 -or $bytes -gt $MaxRespaldoMB * 1MB) { throw 'El respaldo SQL está vacío o supera el límite establecido.' }
+                Move-Item -LiteralPath $parcial -Destination $archivo
+                Get-FileHash -LiteralPath $archivo -Algorithm SHA256
+            } finally {
+                Remove-Item Env:MYSQL_PWD -ErrorAction SilentlyContinue
+                if (Test-Path -LiteralPath $parcial) { Remove-Item -LiteralPath $parcial }
+            }
+        }
+        Restaurar {
+            if ($Base -notmatch '^rsu_v3_demo_restore_[a-z0-9_]+$') { throw 'Usa un esquema nuevo rsu_v3_demo_restore_<identificador>.' }
+            if (!$Respaldo -or $Sha256 -notmatch '^[a-f0-9]{64}$') { throw 'Indica archivo SQL y SHA-256 esperado.' }
+            $archivo = Get-Item -LiteralPath $Respaldo
+            if ($archivo.PSIsContainer -or $archivo.Extension -ne '.sql' -or $archivo.Length -gt $MaxRespaldoMB * 1MB) {
+                throw 'El archivo SQL supera el límite o no es un respaldo válido.'
+            }
+            if ((Get-FileHash -LiteralPath $archivo.FullName -Algorithm SHA256).Hash -ne $Sha256) { throw 'El SHA-256 del respaldo no coincide.' }
+            $ejecutable = (Get-Command $Mysql -CommandType Application).Source
+            $argsMysql = @("--host=$env:DB_HOST", "--port=$env:DB_PORT", "--user=$env:DB_USERNAME", '--default-character-set=utf8mb4', $Base)
+            if (($env:DB_HOST -notmatch '^[0-9a-z.\-]+$') -or ($env:DB_PORT -notmatch '^\d{1,5}$') -or ($env:DB_USERNAME -notmatch '^[0-9a-z_\-]+$')) {
+                throw 'Revisa el host, el puerto y el usuario MySQL.'
+            }
+            $env:MYSQL_PWD = $env:DB_PASSWORD
+            try {
+                $tablas = & $ejecutable @argsMysql --batch --skip-column-names --execute 'SHOW TABLES'
+                if ($LASTEXITCODE -ne 0 -or $tablas) { throw 'El esquema debe existir, estar vacío y ser accesible por el usuario dedicado.' }
+                $proceso = Start-Process -FilePath $ejecutable -ArgumentList $argsMysql -RedirectStandardInput $archivo.FullName -WindowStyle Hidden -PassThru -Wait
+                if ($proceso.ExitCode -ne 0) { throw 'La restauración quedó incompleta. Conserva el original y usa otro esquema vacío para reintentar.' }
+                Write-Output $Base
             } finally { Remove-Item Env:MYSQL_PWD -ErrorAction SilentlyContinue }
         }
     }
