@@ -1,3 +1,11 @@
+# RSU móvil
+
+Para los avances 06 y 07, consulta el [laboratorio V3](docs/V3_LABORATORIO.md), la [matriz de pantallas](docs/aceptacion/MATRIZ_REQUISITOS_AVANCE_06_07.md) y los [105 casos de aceptación](docs/aceptacion/RESULTADOS_ACEPTACION.csv).
+
+El panel administra personal, flota, zonas y programación de recolección. La app **RSU Recolección** consulta turnos por zona. **RSU Conductor** usa la programación y asistencia del mismo servidor para operar recorridos.
+
+Consulta la [arquitectura](docs/ARQUITECTURA.md), la [API](docs/API.md), la [instalación de laboratorio](docs/DESPLIEGUE_GRATUITO.md), las [pruebas](docs/PRUEBAS.md) y el [informe de aceptación](INFORME_FINAL.md). Los manuales de [cliente](docs/MANUAL_CLIENTE.md), [conductor](docs/MANUAL_CONDUCTOR.md) y [administrador](docs/MANUAL_ADMINISTRADOR.md) describen cada flujo.
+
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
 <p align="center">
@@ -332,3 +340,8 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+# Descargas de RSU RC1
+
+Los APK de Conductor y Ciudadano, el kit y los hashes se distribuyen como prerelease de laboratorio. [GitHub Releases](https://github.com/Ed-Ponk/rsu-proyecto/releases) · [Instalación y alcance](docs/despliegue/RC1.md)
+
+El lanzador portátil automatiza las operaciones del anfitrión Windows y conserva una sola base activa durante una transferencia. [RSU Portable Cloud](docs/despliegue/PORTABLE_CLOUD.md)

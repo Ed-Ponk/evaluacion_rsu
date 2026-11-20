@@ -268,6 +268,7 @@ class ProgramacionTest extends TestCase
 
     public function test_aprobar_descuenta_los_dias_y_rechazar_no(): void
     {
+        $this->travelTo(today()->startOfYear()->addMonths(2));
         $persona = $this->persona();
         $this->solicitar($persona, 10, 5)->assertOk();
         $this->solicitar($persona, 4, 40)->assertOk();
@@ -290,15 +291,12 @@ class ProgramacionTest extends TestCase
 
     public function test_no_se_aprueba_si_no_alcanzan_los_dias(): void
     {
+        $this->travelTo(today()->startOfYear()->addMonths(2));
         $persona = $this->persona();
         // Misma persona con dos solicitudes pendientes que juntas superan el cupo de 30: la segunda no se puede aprobar.
         $this->solicitar($persona, 20, 5)->assertOk();
         $this->solicitar($persona, 15, 40)->assertOk();
         [$a, $b] = Vacacion::orderBy('id')->get();
-
-        if ($a->start_date->year !== $b->start_date->year) {
-            $this->markTestSkipped('Las solicitudes caen en años distintos: no comparten cupo.');
-        }
 
         $this->ajax('patch', route('admin.vacaciones.aprobar', $a->id))->assertOk();
         $this->ajax('patch', route('admin.vacaciones.aprobar', $b->id))->assertStatus(422);

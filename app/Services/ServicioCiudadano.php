@@ -134,7 +134,7 @@ class ServicioCiudadano
     public function recorridoResumen(Recorrido $r, Ciudadano $c): array
     {
         $p = $r->programacion;
-        $agregado = CalificacionRecorrido::where('trip_id', $r->id)->selectRaw('COUNT(*) as total, AVG(rating) as promedio')->first();
+        $agregado = CalificacionRecorrido::where('trip_id', $r->id)->selectRaw('COUNT(*) as total, AVG(stars) as promedio')->first();
 
         return $this->recorridoBreve($r) + [
             'programacion_id' => $p->id,
@@ -169,6 +169,6 @@ class ServicioCiudadano
     {
         $cal = CalificacionRecorrido::where('trip_id', $r->id)->where('citizen_id', $c->id)->first();
 
-        return $cal ? ['estrellas' => $cal->rating, 'comentario' => $cal->comment, 'fecha' => $cal->created_at->toIso8601String()] : null;
+        return $cal ? ['estrellas' => $cal->stars, 'comentario' => $cal->comment, 'fecha' => $cal->created_at->toIso8601String()] : null;
     }
 }

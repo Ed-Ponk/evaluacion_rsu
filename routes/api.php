@@ -4,15 +4,38 @@ use App\Http\Controllers\Api\Ciudadano\AccesoController as AccesoCiudadano;
 use App\Http\Controllers\Api\Ciudadano\ProgramacionController as ProgramacionCiudadano;
 use App\Http\Controllers\Api\Ciudadano\RecorridoController as RecorridoCiudadano;
 use App\Http\Controllers\Api\Ciudadano\ZonaController as ZonaCiudadano;
+use App\Http\Controllers\Api\CiudadanoController;
 use App\Http\Controllers\Api\Conductor\AccesoController;
 use App\Http\Controllers\Api\Conductor\ProgramacionController;
 use App\Http\Controllers\Api\Conductor\RecorridoController;
+use App\Http\Controllers\Api\ConsultaRecoleccionController;
+use App\Http\Middleware\SoloCiudadanoV1;
 use Illuminate\Support\Facades\Route;
 
 /*
 | API de la app móvil del conductor (Avance 6). Todas las rutas quedan bajo /api/conductor.
 | Autenticación: token de Sanctum en la cabecera «Authorization: Bearer <token>».
 */
+
+Route::get('v1/recoleccion', [ConsultaRecoleccionController::class, 'index'])->middleware('throttle:60,1')->name('api.recoleccion.index');
+// El limitador de Laravel usa MySQL en despliegue. El frontal limita esta ruta antes de llegar a PHP.
+Route::get('v1/salud', [ConsultaRecoleccionController::class, 'salud'])->name('api.salud');
+
+Route::prefix('v1/ciudadano')->name('api.v1.ciudadano.')->controller(CiudadanoController::class)->group(function () {
+    Route::post('registro', 'registrar')->middleware('throttle:6,1,ciudadano-registro')->name('registro');
+    Route::post('login', 'login')->middleware('throttle:6,1,ciudadano-login')->name('login');
+    Route::get('zonas', 'zonas')->middleware('throttle:60,1')->name('zonas');
+    Route::post('zonas/ubicar', 'ubicar')->middleware('throttle:30,1')->name('ubicar');
+    Route::middleware(['auth:sanctum', SoloCiudadanoV1::class, 'throttle:120,1'])->group(function () {
+        Route::get('perfil', 'perfil')->name('perfil');
+        Route::post('logout', 'logout')->name('logout');
+        Route::post('zona', 'cambiarZona')->name('zona');
+        Route::get('programaciones', 'programaciones')->name('programaciones');
+        Route::get('programaciones/{programacion}', 'detalle')->whereNumber('programacion')->name('detalle');
+        Route::post('programaciones/{programacion}/valoracion', 'calificar')->whereNumber('programacion')->name('valoracion');
+        Route::get('historial', 'historial')->name('historial');
+    });
+});
 
 Route::prefix('conductor')->name('api.conductor.')->group(function () {
     Route::post('login', [AccesoController::class, 'login'])->middleware('throttle:6,1')->name('login');

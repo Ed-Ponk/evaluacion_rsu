@@ -29,7 +29,7 @@ class InicioTest extends TestCase
             ->assertSee(config('proyecto.municipalidad'))
             ->assertSee(route('admin.personal.index'))
             ->assertSee(route('admin.contratos.index'))
-            ->assertSee('Próximamente');
+            ->assertSee(route('admin.programaciones.index'));
     }
 
     public function test_tiene_reloj_y_acceso_a_la_marcacion_dni(): void

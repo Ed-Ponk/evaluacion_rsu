@@ -24,7 +24,7 @@ class ServicioConductor
             ->whereDate('date', '>=', today()->subDay())   // el nocturno de ayer puede seguir en curso
             ->orderBy('date')
             ->get()
-            ->filter(fn (Programacion $p) => $p->recorrido?->enCurso() || ($p->esProgramado() && ! $p->haTerminado()))
+            ->filter(fn (Programacion $p) => $p->recorrido ? $p->recorrido->enCurso() : ($p->esProgramado() && ! $p->haTerminado()))
             ->sortBy(fn (Programacion $p) => $p->inicio()->timestamp)
             ->take($limite)
             ->values();
@@ -164,6 +164,7 @@ class ServicioConductor
                 'momento' => $pt->recorded_at->toIso8601String(),
             ])->all(),
             'segundos_entre_puntos' => (int) config('proyecto.recorridos.segundos_entre_puntos', 5),
+            'captura_hasta' => $p->fin()->toIso8601String(),
         ];
     }
 

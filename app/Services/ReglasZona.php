@@ -168,7 +168,7 @@ class ReglasZona
     }
 
     /** Punto dentro del polígono (regla del rayo). */
-    private function contiene(array $poligono, float $lat, float $lng): bool
+    public function contiene(array $poligono, float $lat, float $lng, bool $incluirBorde = false): bool
     {
         $dentro = false;
         $n = count($poligono);
@@ -176,6 +176,12 @@ class ReglasZona
         for ($i = 0, $j = $n - 1; $i < $n; $j = $i++) {
             [$yi, $xi] = $poligono[$i];
             [$yj, $xj] = $poligono[$j];
+
+            if ($incluirBorde && abs(($xj - $xi) * ($lat - $yi) - ($yj - $yi) * ($lng - $xi)) < 1e-10
+                && $lat >= min($yi, $yj) && $lat <= max($yi, $yj)
+                && $lng >= min($xi, $xj) && $lng <= max($xi, $xj)) {
+                return true;
+            }
 
             if ((($yi > $lat) !== ($yj > $lat)) && ($lng < ($xj - $xi) * ($lat - $yi) / ($yj - $yi) + $xi)) {
                 $dentro = ! $dentro;

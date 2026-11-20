@@ -72,7 +72,7 @@ class RecorridoController extends Controller
             CalificacionRecorrido::create([
                 'trip_id' => $r->id,
                 'citizen_id' => $ciudadano->id,
-                'rating' => (int) $datos['estrellas'],
+                'stars' => (int) $datos['estrellas'],
                 'comment' => $comentario === '' ? null : $comentario,
             ]);
         });

@@ -383,7 +383,7 @@ class ProgramacionController extends Controller
     /** Detalle y historial de cambios (ventana emergente). */
     public function historial(string $id)
     {
-        $programacion = Programacion::with(['grupo', 'zona', 'turno', 'vehiculo', 'conductor', 'ayudantes'])->findOrFail($id);
+        $programacion = Programacion::with(['grupo', 'zona', 'turno', 'vehiculo', 'conductor', 'ayudantes', 'recorrido'])->findOrFail($id);
 
         $texto = new DescripcionDeBitacora;
         $cambios = Bitacora::with('usuario')
@@ -396,7 +396,11 @@ class ProgramacionController extends Controller
                 'detalle' => $this->describirCambio($b, $texto),
             ]);
 
-        return view('admin.programaciones.historial', ['programacion' => $programacion, 'cambios' => $cambios]);
+        $recorrido = $programacion->recorrido;
+        $cantidadGps = $recorrido?->puntos()->count() ?? 0;
+        $puntosGps = $recorrido?->puntos()->reorder('recorded_at', 'desc')->orderByDesc('id')->limit(100)->get() ?? collect();
+
+        return view('admin.programaciones.historial', compact('programacion', 'cambios', 'puntosGps', 'cantidadGps'));
     }
 
     /* ---------------------------- candidatos para el editor ---------------------------- */

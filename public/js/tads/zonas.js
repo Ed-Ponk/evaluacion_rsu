@@ -92,10 +92,32 @@
     function crearMapa(elemento, centro, zoom) {
         prepararLeaflet();
         const mapa = L.map(elemento).setView(centro, zoom);
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        const atribucion = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
+        const teselas = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+            attribution: atribucion,
+        });
+        let usarAlternativa = null;
+        let falloTesela = false;
+        teselas.on('tileerror', () => {
+            falloTesela = true;
+            usarAlternativa?.();
         }).addTo(mapa);
+        fetch('/mapas/chiclayo-vial.json').then(respuesta => respuesta.ok ? respuesta.json() : null).then(datos => {
+            if (!datos) return;
+            const vias = L.polyline(datos.vias, { color: '#64748b', weight: 1.5, interactive: false, attribution: atribucion });
+            L.control.layers({ 'Calles en línea': teselas, 'Vías locales (Chiclayo)': vias }).addTo(mapa);
+            usarAlternativa = () => {
+                if (mapa.hasLayer(teselas) && mapa.getBounds().intersects(L.latLngBounds(
+                    [datos.limites[0], datos.limites[1]], [datos.limites[2], datos.limites[3]],
+                ))) {
+                    mapa.removeLayer(teselas);
+                    vias.addTo(mapa);
+                    vias.bringToBack();
+                }
+            };
+            if (falloTesela) usarAlternativa();
+        }).catch(() => {});
         return mapa;
     }
 

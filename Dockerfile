@@ -75,7 +75,7 @@ RUN sed -i 's/\r$//' /usr/local/bin/rsu-entrypoint && chmod +x /usr/local/bin/rs
 
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=5 \
-    CMD curl -fsS http://localhost/up >/dev/null || exit 1
+    CMD curl -fsS http://localhost/api/v1/salud >/dev/null || exit 1
 
 ENTRYPOINT ["rsu-entrypoint"]
 CMD ["apache2-foreground"]

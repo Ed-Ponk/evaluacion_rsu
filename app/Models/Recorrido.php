@@ -21,7 +21,7 @@ class Recorrido extends Model
 
     protected $table = 'trips';
 
-    protected $fillable = ['programming_id', 'driver_id', 'status', 'started_at', 'ended_at', 'observation'];
+    protected $fillable = ['programming_id', 'driver_id', 'status', 'started_at', 'ended_at', 'observation', 'completion_operation'];
 
     protected function casts(): array
     {

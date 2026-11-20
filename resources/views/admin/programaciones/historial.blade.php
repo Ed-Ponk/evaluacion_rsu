@@ -5,6 +5,15 @@
 <div class="t-resumen-grupo">
     <div><small>Fecha</small><strong>{{ $programacion->date->format('d/m/Y') }}</strong></div>
     <div><small>Estado</small><strong>{{ \App\Models\Programacion::ESTADOS[$programacion->status] ?? $programacion->status }}</strong></div>
+    <div>
+        <small>Recorrido móvil</small>
+        @if ($recorrido = $programacion->recorrido)
+            <strong>{{ \App\Models\Recorrido::ESTADOS[$recorrido->status] ?? $recorrido->status }}</strong>
+            <span>{{ $recorrido->started_at->format('d/m/Y H:i') }}{{ $recorrido->ended_at ? ' – '.$recorrido->ended_at->format('d/m/Y H:i') : '' }}</span>
+        @else
+            <strong>Sin recorrido registrado</strong>
+        @endif
+    </div>
     <div><small>Grupo</small><strong>{{ $programacion->grupo?->name ?? '—' }}</strong></div>
     <div><small>Zona</small><strong>{{ $programacion->zona?->name }}</strong></div>
     <div><small>Turno</small><strong>{{ $programacion->turno?->name }}
@@ -32,6 +41,18 @@
         </div>
     @endif
 </div>
+
+@if ($programacion->recorrido)
+    <section class="mb-3" aria-label="Ubicaciones del recorrido">
+        <p>Observación de cierre: {{ $programacion->recorrido->observation ?? 'Pendiente' }}</p>
+        <details>
+            <summary>{{ $cantidadGps }} ubicaciones guardadas (hasta las 100 más recientes)</summary>
+            @foreach ($puntosGps as $punto)
+                <div>{{ $punto->recorded_at->format('d/m/Y H:i:s') }} · {{ $punto->latitude }}, {{ $punto->longitude }}</div>
+            @endforeach
+        </details>
+    </section>
+@endif
 
 <h6 class="fw-bold mb-2"><i class="bi bi-clock-history me-1"></i> Historial de cambios</h6>
 

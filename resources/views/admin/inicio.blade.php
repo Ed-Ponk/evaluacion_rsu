@@ -29,6 +29,25 @@
                 @endcan
             </div>
         </section>
+        @isset($kpis)
+            <section class="t-tarjeta p-3 mb-3" aria-label="Indicadores operativos">
+                <h2 class="h5">Indicadores operativos</h2>
+                <dl class="row mb-0">
+                    @foreach ([
+                        'vehiculos_total' => 'Vehículos registrados',
+                        'vehiculos_operativos' => 'Vehículos operativos',
+                        'vehiculos_taller' => 'Vehículos fuera de operación',
+                        'capacidad_total_toneladas' => 'Capacidad de flota operativa en toneladas',
+                        'personal_total' => 'Personal registrado',
+                        'personal_turno_hoy' => 'Personal con entrada en la jornada de hoy',
+                        'contratos_vigentes' => 'Contratos vigentes',
+                        'contratos_por_vencer' => 'Contratos por vencer en 30 días',
+                    ] as $clave => $etiqueta)
+                        <div class="col-sm-6 col-lg-3"><dt>{{ $etiqueta }}</dt><dd>{{ $kpis[$clave] }}</dd></div>
+                    @endforeach
+                </dl>
+            </section>
+        @endisset
 
         {{-- Información general y accesos rápidos --}}
         <section class="t-tarjeta t-presentacion">

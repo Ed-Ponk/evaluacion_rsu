@@ -10,11 +10,11 @@ class CalificacionRecorrido extends Model
 {
     protected $table = 'trip_ratings';
 
-    protected $fillable = ['trip_id', 'citizen_id', 'rating', 'comment'];
+    protected $fillable = ['trip_id', 'citizen_id', 'stars', 'comment'];
 
     protected function casts(): array
     {
-        return ['rating' => 'integer'];
+        return ['stars' => 'integer'];
     }
 
     public function recorrido(): BelongsTo

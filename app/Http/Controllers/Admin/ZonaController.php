@@ -167,7 +167,9 @@ class ZonaController extends Controller
 
                 $zona->update($cambios);
                 $this->guardarCoordenadas($zona, $datos['coordinates']);
-                $this->guardarSectores($zona, $datos['sectores']);
+                if (array_key_exists('sectors', $datos)) {
+                    $this->guardarSectores($zona, $datos['sectores']);
+                }
             }, 3);
         }, $anterior);
 
@@ -186,7 +188,8 @@ class ZonaController extends Controller
             return $this->rechazo("No se puede eliminar: la zona está en {$uso}. Márquela como inactiva.", 'admin.zonas.index');
         }
 
-        $zona->delete();   // sus coordenadas se borran en cascada
+        $zona->delete();   // sus coordenadas y sectores se borran en cascada
+        $this->borrarArchivo($zona->photo_path);
 
         return $this->exito('Zona eliminada', 'admin.zonas.index');
     }

@@ -41,7 +41,7 @@ class AccesoController extends Controller
         }
 
         $token = User::findOrFail($conductor->id)
-            ->createToken($datos['dispositivo'] ?? 'app-conductor', ['conductor'])
+            ->createToken($datos['dispositivo'] ?? 'app-conductor', ['conductor'], now()->addHours(24))
             ->plainTextToken;
 
         return response()->json([
