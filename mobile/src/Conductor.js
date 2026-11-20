@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, AppState, Text, View } from 'react-native';
 import * as Location from 'expo-location';
 import { api, hora, laboratorio } from './api';
 import { useSesion, validarAcceso } from './sesion';
 import { Boton, Campo, Mensaje, Pantalla, estilos } from './ui';
 import Mapa from './Mapa';
-import { detenerGPS, enviarGPS, iniciarGPS, pendientesGPS, rechazadasGPS } from './gps';
+import { cierrePendiente, detenerGPS, enviarGPS, existeCierre, guardarCierre, iniciarGPS, pendientesGPS, rechazadasGPS, terminarCierre } from './gps';
 
 const titulos = { login: 'RSU Conductor', servidor: 'Configurar servidor', lista: 'Mis Programaciones', hoy: 'Programación de Hoy', pendiente: 'Programación pendiente', activo: 'Recorrido en curso', cerrar: 'Finalizar recorrido', historial: 'Historial de recorridos', detalle: 'Detalle del recorrido', mapa: 'Mapa del recorrido', perfil: 'Mi perfil' };
 const horaCorta = fecha => new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(fecha));
@@ -33,14 +33,16 @@ export default function Conductor() {
     const [pendientes, ponerPendientes] = useState(0);
     const [rechazadas, ponerRechazadas] = useState(0);
     const [ahora, tic] = useState(Date.now());
-    const enviar = (ruta, datos, token = sesion.token) => api('conductor/' + ruta, { token, datos });
+    const [cierre, ponerCierre] = useState(null);
+    const sincronizandoCierre = useRef(false);
+    const enviar = (ruta, datos, token = sesion.token) => api('conductor/' + ruta, { token, datos, origen: sesion.origen });
 
     async function operar(accion) {
         marcar(true); ponerError(''); ponerAviso('');
         try { await accion(); }
         catch (fallo) {
             if (fallo.status === 401 && sesion.token) {
-                await detenerGPS(); await sesion.guardar(null); guardarActivo(null); ver('login');
+                await detenerGPS(); await sesion.guardar(null); guardarActivo(null); guardarPerfil(null); ponerCierre(null); ver('login');
             }
             ponerError(fallo.message);
         } finally { marcar(false); }
@@ -55,6 +57,42 @@ export default function Conductor() {
     useEffect(() => {
         if (sesion.token && vista === 'login') operar(async () => { await cargar(); ver('lista'); });
     }, [sesion.token]);
+    useEffect(() => {
+        if (!sesion.token) return;
+        let vivo = true;
+        async function recuperarCierre() {
+            if (!vivo || sincronizandoCierre.current) return;
+            sincronizandoCierre.current = true;
+            let solicitud;
+            try {
+                solicitud = await cierrePendiente(sesion.origen, sesion.token, perfil?.id);
+                if (!vivo) return;
+                ponerCierre(solicitud);
+                if (!solicitud || solicitud.conflicto) return;
+                while (await pendientesGPS(sesion.origen, solicitud)) await enviarGPS(sesion.origen, sesion.token, solicitud);
+                const cerrado = (await enviar('recorridos/' + solicitud.id + '/finalizar', {
+                    observacion: solicitud.observacion, operacion: solicitud.operacion,
+                })).data;
+                await terminarCierre(solicitud);
+                const fuera = await rechazadasGPS(sesion.origen, solicitud);
+                ponerCierre(null); guardarActivo(null); guardarViaje(cerrado); escribirObservacion(''); ver('detalle');
+                ponerError('');
+                ponerAviso('Recorrido finalizado a las ' + horaCorta(cerrado.fin) + '.' +
+                    (fuera ? ' ' + fuera + ' ubicaciones fuera de ventana conservadas en el dispositivo.' : ''));
+            } catch (fallo) {
+                if (solicitud && [403, 404, 409, 422].includes(fallo.status)) {
+                    await terminarCierre(solicitud, fallo.message);
+                    ponerCierre({ ...solicitud, conflicto: fallo.message });
+                } else if (fallo.status === 401 && vivo) {
+                    await sesion.guardar(null); guardarActivo(null); guardarPerfil(null); ponerCierre(null); ver('login');
+                    ponerAviso('Inicia sesión con el mismo conductor para recuperar el cierre.');
+                } else if (vivo && !solicitud) ponerError(fallo.message);
+            } finally { sincronizandoCierre.current = false; }
+        }
+        recuperarCierre();
+        const reloj = setInterval(recuperarCierre, 5000);
+        return () => { vivo = false; clearInterval(reloj); };
+    }, [sesion.token, sesion.origen, perfil?.id]);
     useEffect(() => {
         if (!sesion.token || !activo?.id) return;
         let vivo = true;
@@ -78,7 +116,7 @@ export default function Conductor() {
             } catch (fallo) {
                 if (vivo) estadoGPS(fallo.message.includes('No se pudo conectar con el servidor') ? 'Sin conexión: ubicaciones por enviar' : fallo.message);
                 if (fallo.status === 401 && vivo) {
-                    await detenerGPS(); await sesion.guardar(null); guardarActivo(null); ver('login');
+                    await detenerGPS(); await sesion.guardar(null); guardarActivo(null); guardarPerfil(null); ponerCierre(null); ver('login');
                 }
                 proximo = Date.now() + reintento; reintento = Math.min(reintento * 2, 30000);
             } finally {
@@ -125,26 +163,14 @@ export default function Conductor() {
         if (texto.length < 3) { ponerError('Escriba al menos 3 caracteres.'); return; }
         Alert.alert('¿Finalizar recorrido?', 'Se registrará la hora del servidor y se detendrá la adquisición GPS.', [
             { text: 'Cancelar', style: 'cancel' }, { text: 'Aceptar', onPress: () => operar(async () => {
-                await detenerGPS();
-                try {
-                    while (await pendientesGPS(sesion.origen, activo)) await enviarGPS(sesion.origen, sesion.token, activo);
-                    const cerrado = (await enviar('recorridos/' + activo.id + '/finalizar', { observacion: texto })).data;
-                    guardarActivo(null); guardarViaje(cerrado); escribirObservacion(''); ver('detalle');
-                    const fuera = await rechazadasGPS(sesion.origen, activo);
-                    ponerAviso('Recorrido finalizado a las ' + horaCorta(cerrado.fin) + '.' +
-                        (fuera ? ' ' + fuera + ' ubicaciones fuera de ventana conservadas en el dispositivo.' : ''));
-                } catch (fallo) {
-                    const dato = await enviar('recorridos/' + activo.id).catch(() => null);
-                    if (dato?.data.estado === 'completado') { guardarActivo(null); guardarViaje(dato.data); ver('detalle'); ponerAviso('Recorrido finalizado.'); return; }
-                    if (fallo.status !== 401) await iniciarGPS(sesion.origen, activo);
-                    throw fallo;
-                }
+                if (!perfil?.id || !activo) throw new Error('Recarga la asignación antes de solicitar el cierre.');
+                ponerCierre(await guardarCierre(sesion.origen, sesion.token, perfil.id, activo, texto));
             }) },
         ]);
     }
     function salir() {
         operar(async () => {
-            if (activo) throw new Error('Finalice el recorrido antes de cerrar sesión.');
+            if (activo || await cierrePendiente(sesion.origen, sesion.token, perfil?.id)) throw new Error('Finalice el recorrido antes de cerrar sesión.');
             await enviar('logout', {}); await detenerGPS(); await sesion.guardar(null);
             guardarPerfil(null); guardarProgramaciones(null); guardarHistorial(null); guardarViaje(null); abrirMenu(false); ver('login');
         });
@@ -158,6 +184,9 @@ export default function Conductor() {
     return <Pantalla titulo={titulos[vista]} subtitulo={vista === 'login' ? 'Aplicación para conductores' : undefined}
         volver={volver && (() => ir(volver))} menu={sesion.token && (() => abrirMenu(!menu))} recargar={recargar} ocupado={ocupado}>
         <Mensaje texto={error || sesion.errorSesion} error /><Mensaje texto={ocupado || !sesion.lista ? 'Cargando…' : aviso} />
+        {cierre && <Mensaje texto={cierre.conflicto
+            ? 'Cierre en conflicto. Guardado para revisión: ' + cierre.conflicto
+            : 'Cierre guardado. Pendiente de confirmación del servidor.'} />}
         {menu && <View style={estilos.tarjeta}>
             {[['lista', 'Mis programaciones'], ['hoy', 'Programación de hoy'], ['historial', 'Historial'], ['perfil', 'Mi perfil']].map(([id, texto]) => <Boton key={id} texto={texto} secundario onPress={() => ir(id)} />)}
             <Boton texto="Cerrar sesión" onPress={salir} />
@@ -172,7 +201,10 @@ export default function Conductor() {
         </View>}
         {vista === 'servidor' && <View style={estilos.tarjeta}>
             <Campo etiqueta="Dirección del servidor" value={origen} onChangeText={escribirOrigen} autoCapitalize="none" keyboardType="url" />
-            <Boton texto="Probar y guardar" disabled={ocupado} onPress={() => operar(async () => { await sesion.cambiarOrigen(origen); ir('login'); })} />
+            <Boton texto="Probar y guardar" disabled={ocupado} onPress={() => operar(async () => {
+                if (await existeCierre(sesion.origen)) throw new Error('Resuelve el cierre pendiente antes de cambiar de servidor.');
+                await sesion.cambiarOrigen(origen); ir('login');
+            })} />
         </View>}
         {vista === 'lista' && <>
             {perfil && <View style={estilos.tarjeta}><Text style={estilos.encabezado}>{perfil.nombre_completo}</Text><Mensaje texto={'DNI: ' + perfil.dni} />
@@ -195,22 +227,22 @@ export default function Conductor() {
             {!!programacion.motivo && <Text style={[estilos.texto, { color: '#92530a' }]}>{programacion.motivo}</Text>}
             {activo?.programacion_id === programacion.id ? <Boton texto="Ver recorrido en curso" onPress={() => ir('activo')} />
                 : <Boton texto={programacion.recorrido?.fin ? 'Recorrido completado a las ' + horaCorta(programacion.recorrido.fin) : 'Iniciar recorrido'}
-                    disabled={ocupado || !programacion.puede_iniciar || !!activo || vista === 'pendiente'} onPress={confirmarInicio} />}
+                    disabled={ocupado || !programacion.puede_iniciar || !!activo || !!cierre || vista === 'pendiente'} onPress={confirmarInicio} />}
         </View> : <Mensaje texto={ocupado ? '' : 'No hay programación para hoy'} />)}
         {vista === 'activo' && activo && <>
             <View style={estilos.tarjeta}><Text style={estilos.estado}>En ruta · {reloj}</Text><Resumen item={activo} /></View>
             <Mapa vertices={activo.zona_vertices} puntos={activo.puntos} />
-            <Mensaje texto={gps || 'Buscando señal GPS…'} />
+            <Mensaje texto={cierre ? 'Captura detenida para el cierre.' : gps || 'Buscando señal GPS…'} />
             {pendientes > 0 && <Mensaje texto={pendientes + ' ubicaciones por enviar'} />}
             {rechazadas > 0 && <Mensaje texto={rechazadas + ' ubicaciones fuera de ventana guardadas para revisión.'} />}
             {ultima && <Mensaje texto={ultima.lat.toFixed(5) + ', ' + ultima.lng.toFixed(5)} />}
-            <Boton texto="Finalizar recorrido" onPress={() => ir('cerrar')} />
+            <Boton texto="Finalizar recorrido" disabled={!!cierre} onPress={() => ir('cerrar')} />
         </>}
         {vista === 'cerrar' && activo && <View style={estilos.tarjeta}>
             <Resumen item={activo} /><Mensaje texto={'Inicio del recorrido: ' + hora(activo.inicio)} />
             <Campo etiqueta="Observación del recorrido" value={observacion} onChangeText={escribirObservacion} maxLength={500} multiline />
             <Mensaje texto={observacion.length + '/500'} />
-            <Boton texto="Finalizar recorrido" disabled={ocupado} onPress={confirmarCierre} />
+            <Boton texto="Finalizar recorrido" disabled={ocupado || !!cierre} onPress={confirmarCierre} />
             <Boton texto="Cancelar" secundario disabled={ocupado} onPress={() => ir('activo')} />
         </View>}
         {vista === 'historial' && <>

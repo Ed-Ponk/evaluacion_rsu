@@ -7,6 +7,7 @@ const plugins = conductor ? [
     ['expo-location', { locationAlwaysAndWhenInUsePermission: 'RSU registra la ubicación solo durante un recorrido activo.', isAndroidBackgroundLocationEnabled: true, isAndroidForegroundServiceEnabled: true, isIosBackgroundLocationEnabled: true }],
     'expo-secure-store',
     'expo-sqlite',
+    './withUbicacionConductor',
 ] : [['expo-location', { locationWhenInUsePermission: 'RSU usa tu ubicación para encontrar tu zona.' }], 'expo-secure-store'];
 if (laboratorio) plugins.push('./withLoopback');
 

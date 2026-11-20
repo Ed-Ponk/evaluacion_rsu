@@ -136,16 +136,25 @@ class RecorridoController extends Controller
         $maximo = (int) config('proyecto.recorridos.observacion_max', 500);
         $datos = $request->validate([
             'observacion' => ['required', 'string', 'min:3', "max:{$maximo}"],
+            'operacion' => ['nullable', 'uuid'],
         ], [], ['observacion' => 'observación']);
 
         $r = DB::transaction(function () use ($request, $recorrido, $datos) {
             $r = $this->delConductor($request, $recorrido, bloquear: true);
-            abort_if(! $r->enCurso(), 422, 'Este recorrido ya fue finalizado.');
+            $operacion = $datos['operacion'] ?? null;
+            $observacion = trim($datos['observacion']);
+            if ($operacion && $r->completion_operation === $operacion) {
+                abort_unless($r->observation === $observacion, 409, 'El cierre ya se confirmó con otra observación.');
+
+                return $r;
+            }
+            abort_if(! $r->enCurso(), $operacion ? 409 : 422, 'Este recorrido ya fue finalizado.');
 
             $r->update([
                 'status' => Recorrido::COMPLETADO,
                 'ended_at' => now(),
-                'observation' => trim($datos['observacion']),
+                'observation' => $observacion,
+                'completion_operation' => $operacion,
             ]);
 
             return $r;

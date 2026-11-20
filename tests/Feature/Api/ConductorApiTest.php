@@ -431,6 +431,20 @@ class ConductorApiTest extends TestCase
         $this->assertSame('09:00', Carbon::parse($detalle->json('data.fin'))->format('H:i'));
     }
 
+    public function test_un_cierre_reenviado_conserva_la_confirmacion_del_servidor(): void
+    {
+        [, $p, $token] = $this->equipoListo();
+        $id = $this->api('post', "programaciones/{$p->id}/recorrido", $token)->assertCreated()->json('data.id');
+        $ruta = "recorridos/{$id}/finalizar";
+        $datos = ['operacion' => 'fb531da7-6c26-44cc-8175-2f73955d72f3', 'observacion' => 'Cierre guardado sin conexión.'];
+        $fin = $this->api('post', $ruta, $token, $datos)->assertOk()->json('data.fin');
+
+        $this->travel(1)->minute();
+        $this->api('post', $ruta, $token, $datos)->assertOk()->assertJsonPath('data.fin', $fin);
+        $this->api('post', $ruta, $token, array_replace($datos, ['observacion' => 'Otra observación.']))->assertConflict();
+        $this->api('post', $ruta, $token, array_replace($datos, ['operacion' => '58bc4651-be9e-4ff4-a946-2a1f574849e9']))->assertConflict();
+    }
+
     public function test_otro_conductor_no_puede_tocar_el_recorrido_ajeno(): void
     {
         [, $p, $token] = $this->equipoListo();

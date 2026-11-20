@@ -1,7 +1,7 @@
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
 import * as SQLite from 'expo-sqlite';
-import { randomUUID } from 'expo-crypto';
+import { CryptoDigestAlgorithm, digestStringAsync, randomUUID } from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { api } from './api';
 
@@ -11,6 +11,7 @@ let sincronizando;
 function base() {
     return conexion ??= SQLite.openDatabaseAsync('recorridos-v3.db').then(async db => {
         await db.execAsync('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=3000; CREATE TABLE IF NOT EXISTS control_v3 (id INTEGER PRIMARY KEY CHECK(id=1), clave TEXT, inicio INTEGER, fin INTEGER); CREATE TABLE IF NOT EXISTS cola (id TEXT PRIMARY KEY, clave TEXT, fecha INTEGER, contenido TEXT); CREATE TABLE IF NOT EXISTS capturas (clave TEXT PRIMARY KEY, fecha INTEGER); CREATE TABLE IF NOT EXISTS ubicaciones_rechazadas (id TEXT PRIMARY KEY, clave TEXT, fecha INTEGER, contenido TEXT);');
+        await db.execAsync('CREATE TABLE IF NOT EXISTS cierres (clave TEXT PRIMARY KEY, origen TEXT NOT NULL, conductor INTEGER NOT NULL, firma TEXT NOT NULL, operacion TEXT NOT NULL, observacion TEXT NOT NULL, conflicto TEXT, UNIQUE (origen, conductor));');
         return db;
     });
 }
@@ -57,7 +58,8 @@ export async function iniciarGPS(origen, viaje) {
     const clave = claveGPS(origen, viaje);
     const fin = Date.parse(viaje.captura_hasta);
     if (!Number.isFinite(fin) || Date.now() >= fin) return;
-    await db.runAsync('INSERT OR REPLACE INTO control_v3 VALUES (1,?,?,?)', clave, Date.parse(viaje.inicio), fin);
+    const resultado = await db.runAsync('INSERT OR REPLACE INTO control_v3 SELECT 1,?,?,? WHERE NOT EXISTS (SELECT 1 FROM cierres WHERE clave=?)', clave, Date.parse(viaje.inicio), fin, clave);
+    if (!resultado.changes) return;
     if (await Location.hasStartedLocationUpdatesAsync(TAREA)) return;
     await Location.startLocationUpdatesAsync(TAREA, {
         accuracy: Location.Accuracy.High, timeInterval: 5000, distanceInterval: 0,
@@ -80,6 +82,39 @@ export async function colaGPS(origen, viaje) {
 export async function pendientesGPS(origen, viaje) {
     const db = await base();
     return (await db.getFirstAsync('SELECT COUNT(*) AS total FROM cola WHERE clave=?', claveGPS(origen, viaje))).total;
+}
+
+export async function guardarCierre(origen, token, conductor, viaje, observacion) {
+    const db = await base();
+    const clave = claveGPS(origen, viaje);
+    const firma = await digestStringAsync(CryptoDigestAlgorithm.SHA256, token);
+    await db.withExclusiveTransactionAsync(async tx => {
+        const anterior = await tx.getFirstAsync('SELECT clave FROM cierres WHERE origen=? AND conductor=?', origen, conductor);
+        if (anterior && anterior.clave !== clave) throw new Error('Ya existe otro cierre pendiente para este conductor.');
+        await tx.runAsync('INSERT OR IGNORE INTO cierres (clave,origen,conductor,firma,operacion,observacion) VALUES (?,?,?,?,?,?)',
+            clave, origen, conductor, firma, randomUUID(), observacion);
+        await tx.runAsync('DELETE FROM control_v3 WHERE clave=?', clave);
+    });
+    if (await Location.hasStartedLocationUpdatesAsync(TAREA)) await Location.stopLocationUpdatesAsync(TAREA);
+    return cierrePendiente(origen, token, conductor);
+}
+
+export async function cierrePendiente(origen, token, conductor) {
+    const db = await base();
+    const firma = token ? await digestStringAsync(CryptoDigestAlgorithm.SHA256, token) : null;
+    const cierre = await db.getFirstAsync('SELECT clave,operacion,observacion,conflicto FROM cierres WHERE origen=? AND (conductor=? OR firma=?)', origen, conductor ?? null, firma);
+    return cierre ? { ...cierre, id: Number(cierre.clave.split('#').at(-1)) } : null;
+}
+
+export async function terminarCierre(cierre, conflicto) {
+    const db = await base();
+    if (conflicto) await db.runAsync('UPDATE cierres SET conflicto=? WHERE clave=? AND operacion=?', conflicto, cierre.clave, cierre.operacion);
+    else await db.runAsync('DELETE FROM cierres WHERE clave=? AND operacion=?', cierre.clave, cierre.operacion);
+}
+
+export async function existeCierre(origen) {
+    const db = await base();
+    return Boolean(await db.getFirstAsync('SELECT 1 FROM cierres WHERE origen=? LIMIT 1', origen));
 }
 
 export async function rechazadasGPS(origen, viaje) {
