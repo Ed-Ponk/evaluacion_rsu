@@ -8,6 +8,7 @@ import { api } from './api';
 const TAREA = 'rsu.recorrido.v3';
 let conexion;
 let sincronizando;
+let capturaActiva;
 function base() {
     return conexion ??= SQLite.openDatabaseAsync('recorridos-v3.db').then(async db => {
         await db.execAsync('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=3000; CREATE TABLE IF NOT EXISTS control_v3 (id INTEGER PRIMARY KEY CHECK(id=1), clave TEXT, inicio INTEGER, fin INTEGER); CREATE TABLE IF NOT EXISTS cola (id TEXT PRIMARY KEY, clave TEXT, fecha INTEGER, contenido TEXT); CREATE TABLE IF NOT EXISTS capturas (clave TEXT PRIMARY KEY, fecha INTEGER); CREATE TABLE IF NOT EXISTS ubicaciones_rechazadas (id TEXT PRIMARY KEY, clave TEXT, fecha INTEGER, contenido TEXT);');
@@ -60,15 +61,21 @@ export async function iniciarGPS(origen, viaje) {
     if (!Number.isFinite(fin) || Date.now() >= fin) return;
     const resultado = await db.runAsync('INSERT OR REPLACE INTO control_v3 SELECT 1,?,?,? WHERE NOT EXISTS (SELECT 1 FROM cierres WHERE clave=?)', clave, Date.parse(viaje.inicio), fin, clave);
     if (!resultado.changes) return;
-    if (await Location.hasStartedLocationUpdatesAsync(TAREA)) return;
+    if (await Location.hasStartedLocationUpdatesAsync(TAREA)) {
+        if (capturaActiva === clave) return;
+        // Android puede conservar el registro de la tarea después de detener el proceso.
+        await Location.stopLocationUpdatesAsync(TAREA);
+    }
     await Location.startLocationUpdatesAsync(TAREA, {
         accuracy: Location.Accuracy.High, timeInterval: 5000, distanceInterval: 0,
         deferredUpdatesInterval: 0, pausesUpdatesAutomatically: false, showsBackgroundLocationIndicator: true,
         foregroundService: { notificationTitle: 'Recorrido en curso', notificationBody: 'RSU está registrando la ubicación del recorrido.' },
     });
+    capturaActiva = clave;
 }
 
 export async function detenerGPS() {
+    capturaActiva = null;
     const db = await base();
     await db.runAsync('DELETE FROM control_v3');
     if (await Location.hasStartedLocationUpdatesAsync(TAREA)) await Location.stopLocationUpdatesAsync(TAREA);
