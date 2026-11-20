@@ -25,6 +25,10 @@ use App\Http\Middleware\VerificarPermiso;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/admin');
+Route::get('/mapas/chiclayo-vial.json', fn () => response()->file(base_path('mobile/src/viasChiclayo.json'), [
+    'Content-Type' => 'application/json',
+    'Cache-Control' => 'public, max-age=86400',
+]));
 
 $protegidas = ['auth:sanctum', config('jetstream.auth_session'), 'verified'];
 
