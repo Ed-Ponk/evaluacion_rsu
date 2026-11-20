@@ -173,6 +173,20 @@
                     const archivoFoto = cuerpo.querySelector('#archivoFoto');
                     if (cajaFoto && archivoFoto) Tads.vistaPreviaArchivo(cajaFoto, archivoFoto);
 
+                    // La plantilla elegida explica qué vistas y cuántos permisos trae.
+                    const tipo = cuerpo.querySelector('#usuarioTipo');
+                    const ayuda = cuerpo.querySelector('#usuarioTipoAyuda');
+                    if (tipo && ayuda) {
+                        const explicar = () => {
+                            const opcion = tipo.selectedOptions[0];
+                            if (!opcion || !opcion.value) return;
+                            const permisos = opcion.dataset.permisos ? ` Trae ${opcion.dataset.permisos} permisos.` : '';
+                            ayuda.textContent = (opcion.dataset.descripcion || '') + permisos;
+                        };
+                        tipo.addEventListener('change', explicar);
+                        explicar();
+                    }
+
                     cuerpo.querySelectorAll('#usuarioDni, #usuarioTelefono').forEach((campo) => {
                         campo.addEventListener('input', () => { campo.value = campo.value.replace(/\D/g, ''); });
                     });
@@ -186,7 +200,7 @@
                     { data: 'dni', render: (v) => v ? `<span class="t-codigo">${Tads.escapar(v)}</span>` : '<span class="text-muted">N/A</span>' },
                     { data: 'correo' },
                     { data: 'telefono', render: (v) => v ? Tads.escapar(v) : '<span class="text-muted">N/A</span>' },
-                    { data: 'tipo', render: (v, t, fila) => fila.es_administrador ? Tads.insignia('ADMINISTRADOR', 'verde') : Tads.insignia('OPERADOR', 'turquesa') },
+                    { data: 'tipo', render: (v, t, fila) => Tads.insignia(String(v).toUpperCase(), fila.color || 'gris') },
                     { data: 'activo', render: (v) => v ? Tads.insignia('Activo', 'verde') : Tads.insignia('Inactivo', 'gris') },
                     { data: 'actualizado', render: Tads.celdaFecha },
                     { data: null, orderable: false, searchable: false, className: 'text-center', render: acciones },

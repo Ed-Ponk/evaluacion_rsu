@@ -17,7 +17,7 @@
             </h1>
             <p class="t-subtitulo">
                 <strong>{{ trim($usuario->name.' '.$usuario->last_name) }}</strong> · {{ $usuario->email }}
-                · {!! $esAdministrador ? '<span class="t-insignia t-azul">Administrador</span>' : '<span class="t-insignia t-gris">Operador</span>' !!}
+                · <span class="t-insignia t-{{ \App\Support\PerfilesDeUsuario::color($usuario->role) }}">{{ $perfilActual }}</span>
             </p>
         </div>
 
@@ -56,6 +56,19 @@
                 <span>Seleccionar todos</span>
             </label>
         </div>
+
+        @if (! $soloLectura && count($plantillas))
+            <div class="pm-plantillas" data-plantillas="{{ json_encode($plantillas) }}">
+                <span class="pm-plantillas-titulo"><i class="bi bi-person-vcard me-1"></i> Cargar una plantilla en las casillas:</span>
+                @foreach ($plantillas as $plantilla)
+                    <button type="button" class="btn t-boton-cancelar pm-plantilla" data-plantilla="{{ $plantilla['clave'] }}">
+                        <i class="bi {{ $plantilla['icono'] }} me-1"></i>{{ $plantilla['nombre'] }}
+                    </button>
+                @endforeach
+                <button type="button" class="btn t-boton-cancelar pm-plantilla" data-plantilla="__ninguno"><i class="bi bi-x-circle me-1"></i>Quitar todo</button>
+                <small class="text-muted d-block mt-1">Solo marca las casillas; los cambios se aplican al pulsar «Guardar permisos».</small>
+            </div>
+        @endif
 
         <div class="row g-3">
             @foreach ($modulos as $modulo)

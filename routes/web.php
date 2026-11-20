@@ -76,6 +76,7 @@ Route::middleware([...$protegidas, VerificarPermiso::class])->prefix('admin')->g
 
     // ---- Seguridad
     // Las rutas de permisos van antes del resource para que no las capture {usuario}.
+    Route::get('usuarios/perfiles', [UsuarioController::class, 'perfiles'])->name('admin.usuarios.perfiles');
     Route::get('usuarios/{usuario}/permisos', [UsuarioController::class, 'permisos'])->name('admin.usuarios.permisos');
     Route::put('usuarios/{usuario}/permisos', [UsuarioController::class, 'guardarPermisos'])->name('admin.usuarios.permisos.guardar');
     Route::resource('usuarios', UsuarioController::class)->names('admin.usuarios')->parameters(['usuarios' => 'usuario']);

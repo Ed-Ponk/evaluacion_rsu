@@ -62,6 +62,18 @@
 
             refrescar();
 
+            // Plantillas (perfiles): marcan las casillas con los permisos de ese puesto; no guardan hasta pulsar «Guardar permisos».
+            const plantillas = JSON.parse(formulario.querySelector('.pm-plantillas')?.dataset.plantillas || '[]');
+            formulario.querySelectorAll('.pm-plantilla').forEach((boton) => {
+                boton.addEventListener('click', () => {
+                    const elegida = plantillas.find((p) => p.clave === boton.dataset.plantilla);
+                    const codigos = new Set(elegida ? elegida.permisos : []);
+                    editables().forEach((c) => { c.checked = codigos.has(c.value); });
+                    refrescar();
+                    Tads.aviso(elegida ? `Plantilla «${elegida.nombre}» cargada: revise y guarde.` : 'Casillas desmarcadas: guarde para aplicar.', 'info');
+                });
+            });
+
             formulario.addEventListener('submit', async (evento) => {
                 evento.preventDefault();
                 if (formulario.dataset.soloLectura === '1') return;

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Personal;
 use App\Models\User;
 use App\Support\CatalogoPermisos;
+use App\Support\PerfilesDeUsuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -60,6 +61,9 @@ class UsuarioController extends Controller
             return $usuario;
         });
 
+        // Los permisos de la plantilla (perfil) elegida se copian al usuario; después se pueden ajustar en «Permisos».
+        $this->aplicarPlantilla($usuario, $datos['role']);
+
         return $this->exito('Usuario registrado', 'admin.usuarios.index', ['usuario' => $this->fila($usuario)]);
     }
 
@@ -91,6 +95,8 @@ class UsuarioController extends Controller
             throw ValidationException::withMessages(['role' => 'No puede cambiar su propio tipo de usuario.']);
         }
 
+        $perfilAnterior = $usuario->role;
+
         $this->conArchivoNuevo($request->file('photo'), 'user_photos', function (?string $ruta) use ($usuario, $datos) {
             $usuario->forceFill([
                 'name' => $datos['name'], 'last_name' => $datos['last_name'], 'dni' => $datos['dni'],
@@ -109,6 +115,11 @@ class UsuarioController extends Controller
 
             $usuario->save();
         }, $usuario->profile_photo_path);
+
+        // Cambiar de perfil entrega los permisos de la nueva plantilla (el perfil «Personalizado» conserva los que ya tenía).
+        if ($datos['role'] !== $perfilAnterior) {
+            $this->aplicarPlantilla($usuario, $datos['role']);
+        }
 
         return $this->exito('Usuario actualizado', 'admin.usuarios.index', ['usuario' => $this->fila($usuario->fresh()->loadCount('permisos'))]);
     }
@@ -147,6 +158,27 @@ class UsuarioController extends Controller
             'esAdministrador' => $usuario->esAdministrador(),
             'esPropio' => $usuario->is($actor),
             'total' => count(CatalogoPermisos::codigos()),
+            // Plantillas que se pueden cargar en las casillas (solo las que quien edita puede conceder).
+            'plantillas' => collect($this->perfilesPermitidos())->except([PerfilesDeUsuario::ADMINISTRADOR, PerfilesDeUsuario::PERSONALIZADO])
+                ->map(fn (array $p, string $clave) => ['clave' => $clave, 'nombre' => $p['nombre'], 'icono' => $p['icono'], 'permisos' => PerfilesDeUsuario::permisos($clave)])->values()->all(),
+            'perfilActual' => PerfilesDeUsuario::nombre($usuario->role),
+        ]);
+    }
+
+    /** Pantalla informativa: las plantillas predefinidas y las vistas que le corresponden a cada una. */
+    public function perfiles()
+    {
+        $asignados = $this->delSistema()->orderBy('name')->get(['id', 'name', 'last_name', 'role', 'status'])->groupBy('role');
+
+        return view('admin.usuarios.perfiles', [
+            'perfiles' => collect(PerfilesDeUsuario::todos())->map(fn (array $p, string $clave) => $p + [
+                'clave' => $clave,
+                'total' => count(PerfilesDeUsuario::permisos($clave)),
+                'niveles' => PerfilesDeUsuario::nivelesPorModulo($clave),
+                'usuarios' => $asignados->get($clave, collect()),
+            ])->values()->all(),
+            'modulos' => CatalogoPermisos::modulos(),
+            'totalPermisos' => count(CatalogoPermisos::codigos()),
         ]);
     }
 
@@ -207,12 +239,50 @@ class UsuarioController extends Controller
         return User::whereNull('usertype_id');
     }
 
-    /** Tipos de usuario que quien está conectado puede asignar: un operador no puede crear administradores. */
+    /**
+     * Perfiles (plantillas) que quien está conectado puede asignar. El administrador, todos; los demás, solo el personalizado y las
+     * plantillas cuyos permisos ellos mismos tienen (nadie concede lo que no posee) y nunca el de administrador.
+     *
+     * @return array<string, array{nombre: string, icono: string, color: string, descripcion: string, permisos: ?list<string>}>
+     */
+    private function perfilesPermitidos(): array
+    {
+        $actor = auth()->user();
+
+        if ($actor->esAdministrador()) {
+            return PerfilesDeUsuario::todos();
+        }
+
+        $propios = $actor->permisosConcedidos();
+
+        return array_filter(
+            PerfilesDeUsuario::todos(),
+            fn (array $perfil, string $clave) => $clave !== PerfilesDeUsuario::ADMINISTRADOR && array_diff(PerfilesDeUsuario::permisos($clave), $propios) === [],
+            ARRAY_FILTER_USE_BOTH,
+        );
+    }
+
+    /** Clave => nombre de los perfiles que se pueden elegir en el formulario. */
     private function tiposPermitidos(): array
     {
-        $todos = [User::ADMINISTRADOR => 'Administrador', User::OPERADOR => 'Operador'];
+        return array_map(fn (array $p) => $p['nombre'], $this->perfilesPermitidos());
+    }
 
-        return auth()->user()->esAdministrador() ? $todos : [User::OPERADOR => 'Operador'];
+    /** Reemplaza los permisos del usuario por los de la plantilla. El administrador y el personalizado no tienen plantilla que copiar. */
+    private function aplicarPlantilla(User $usuario, string $perfil): void
+    {
+        if (! PerfilesDeUsuario::traePermisos($perfil)) {
+            return;
+        }
+
+        $codigos = PerfilesDeUsuario::permisos($perfil);
+
+        DB::transaction(function () use ($usuario, $codigos) {
+            $usuario->permisos()->delete();
+            $usuario->permisos()->createMany(array_map(fn (string $codigo) => ['permission' => $codigo], $codigos));
+        });
+
+        $usuario->olvidarPermisos();
     }
 
     /** Un operador no puede tocar cuentas de administradores. */
@@ -270,7 +340,8 @@ class UsuarioController extends Controller
             'email' => ['required', 'email:rfc', 'max:150', Rule::unique('users', 'email')->ignore($ignorarId)],
             'phone' => ['nullable', 'regex:/^9\d{8}$/'],
             'license' => ['nullable', 'regex:'.Personal::FORMATO_LICENCIA, Rule::unique('users', 'license')->ignore($ignorarId)],
-            'role' => ['required', Rule::in(array_keys($this->tiposPermitidos()))],
+            // Se acepta también el perfil que la cuenta ya tiene (quien edita puede no poder asignarlo, pero sí conservarlo).
+            'role' => ['required', Rule::in([...array_keys($this->tiposPermitidos()), ...($actual ? [$actual->role] : [])])],
             'address' => ['required', 'string', 'min:10', 'max:255'],
             'password' => [$actual ? 'nullable' : 'required', 'string', 'max:72', Password::defaults()],
             'status' => ['boolean'],
@@ -310,7 +381,9 @@ class UsuarioController extends Controller
             'dni' => $usuario->dni,
             'correo' => $usuario->email,
             'telefono' => $usuario->phone,
-            'tipo' => $esAdministrador ? 'Administrador' : 'Operador',
+            'tipo' => PerfilesDeUsuario::nombre($usuario->role),
+            'perfil' => $usuario->role,
+            'color' => PerfilesDeUsuario::color($usuario->role),
             'es_administrador' => $esAdministrador,
             'activo' => (bool) $usuario->status,
             'permisos' => $esAdministrador ? count(CatalogoPermisos::codigos()) : ($usuario->permisos_count ?? $usuario->permisos()->count()),

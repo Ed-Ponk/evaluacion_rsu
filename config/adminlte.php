@@ -835,6 +835,7 @@ return [
             'can' => ['users.view'],
             'submenu' => [
                 ['text' => 'Lista de Usuarios', 'route' => 'admin.usuarios.index', 'icon' => 'bi bi-list-ul', 'can' => 'users.view'],
+                ['text' => 'Perfiles de usuario', 'route' => 'admin.usuarios.perfiles', 'icon' => 'bi bi-person-vcard', 'can' => 'users.view'],
             ],
         ],
         ['header' => 'CUENTA'],

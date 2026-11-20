@@ -4,6 +4,11 @@
     $tipoActual = (string) old('role', $usuario->role ?? '');
     $estadoActual = (string) old('status', ($usuario->status ?? true) ? '1' : '0');
     $esPropio = $editando && $usuario->is(auth()->user());
+    $perfiles = \App\Support\PerfilesDeUsuario::todos();
+    // Si quien edita no puede asignar el perfil actual de la cuenta, igual se muestra para que se conserve.
+    if ($editando && ! isset($tiposPermitidos[$usuario->role])) {
+        $tiposPermitidos[$usuario->role] = \App\Support\PerfilesDeUsuario::nombre($usuario->role);
+    }
 @endphp
 
 <div class="t-alerta-form"></div>
@@ -62,14 +67,16 @@
                 <select name="role" id="usuarioTipo" class="form-select" required @disabled($esPropio)>
                     <option value="">Seleccionar tipo</option>
                     @foreach ($tiposPermitidos as $valor => $texto)
-                        <option value="{{ $valor }}" @selected($tipoActual === $valor)>{{ $texto }}</option>
+                        <option value="{{ $valor }}" @selected($tipoActual === $valor)
+                            data-descripcion="{{ $perfiles[$valor]['descripcion'] ?? '' }}"
+                            data-permisos="{{ \App\Support\PerfilesDeUsuario::traePermisos($valor) ? count(\App\Support\PerfilesDeUsuario::permisos($valor)) : '' }}">{{ $texto }}</option>
                     @endforeach
                 </select>
                 @if ($esPropio)
                     <input type="hidden" name="role" value="{{ $usuario->role }}">
                     <div class="form-text">No puede cambiar su propio tipo de usuario.</div>
                 @else
-                    <div class="form-text">Administrador: acceso total. Operador: solo lo que se le conceda.</div>
+                    <div class="form-text" id="usuarioTipoAyuda">Elija una plantilla: trae las vistas y permisos que le corresponden (se pueden ajustar después).</div>
                 @endif
             </div>
 
