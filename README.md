@@ -339,3 +339,6 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+# Descargas de RSU RC1
+
+Los APK de Conductor y Ciudadano, el kit y los hashes se distribuyen como prerelease de laboratorio. [GitHub Releases](https://github.com/Ed-Ponk/rsu-proyecto/releases) · [Instalación y alcance](docs/despliegue/RC1.md)
