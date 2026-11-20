@@ -13,12 +13,13 @@ if (laboratorio) plugins.push('./withLoopback');
 module.exports = {
     name: conductor ? 'RSU Conductor' : 'RSU Recolección',
     slug: conductor ? 'rsu-conductor' : 'rsu-recoleccion',
-    version: '1.1.0',
+    version: '1.2.0',
     orientation: 'portrait',
     extra: { variante: conductor ? 'conductor' : 'cliente', servidor, laboratorio },
     android: {
         package: packageId,
-        versionCode: 2,
+        versionCode: 3,
+        allowBackup: false,
     },
     ios: { bundleIdentifier: packageId, supportsTablet: true },
     plugins,

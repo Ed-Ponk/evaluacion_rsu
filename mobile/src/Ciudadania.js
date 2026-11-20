@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import * as Location from 'expo-location';
 import { api, hora, laboratorio } from './api';
 import { useSesion, validarAcceso } from './sesion';
 import { Boton, Campo, Mensaje, Pantalla, Pestañas, estilos } from './ui';
 import Mapa from './Mapa';
+import { borrarConsultas, guardarConsulta, leerConsulta } from './cacheCiudadana';
 
 const estados = { programado: 'Programado', reprogramado: 'Reprogramado', en_curso: 'En curso', completado: 'Finalizado', sin_confirmacion: 'Sin confirmación' };
 const titulos = { login: 'RSU Ciudadano', registro: 'Registro de Ciudadano', zonas: 'Selecciona Zona', inicio: 'Mis Programaciones', detalle: 'Detalle de Programación', seguimiento: 'Seguimiento del Recorrido', calificar: 'Calificar Servicio', historial: 'Historial de Recorridos', historico: 'Detalle del Recorrido', perfil: 'Mi perfil', servidor: 'Configurar servidor' };
@@ -31,26 +32,64 @@ export default function Ciudadania() {
     const [ocupado, marcar] = useState(false);
     const [origen, escribirOrigen] = useState('');
     const [horaActual, ponerHora] = useState(Date.now());
-    const enviar = (ruta, datos) => api('v1/ciudadano/' + ruta, { token: sesion.token, datos });
+    const [consultaGuardada, guardarFechaConsulta] = useState(null);
+    const versionConsulta = useRef(0);
+    const enviar = (ruta, datos) => api('v1/ciudadano/' + ruta, { token: sesion.token, origen: sesion.origen, datos });
     const escribirCampo = (campo, valor) => escribir(anterior => ({ ...anterior, [campo]: valor }));
-    const limpiar = () => { guardarUsuario(null); guardarDetalle(null); guardarLista(null); guardarHistorial(null); guardarUbicacion(null); escribir({}); };
+    const limpiar = () => { guardarUsuario(null); guardarDetalle(null); guardarLista(null); guardarHistorial(null); guardarUbicacion(null); guardarFechaConsulta(null); escribir({}); };
+
+    async function invalidarConsultas() {
+        versionConsulta.current++;
+        if (sesion.token) await borrarConsultas(sesion).catch(() => {});
+    }
+
+    async function consultar(ruta) {
+        const version = versionConsulta.current;
+        const vigente = () => versionConsulta.current === version;
+        const alcance = ruta === 'perfil' ? 'perfil' : usuario?.zone_id;
+        try {
+            const datos = await enviar(ruta);
+            if (!vigente()) throw new Error('La sesión o la zona cambió.');
+            await guardarConsulta(sesion, alcance, ruta, datos, vigente).catch(() => {});
+            if (!vigente()) throw new Error('La sesión o la zona cambió.');
+            if (ruta !== 'perfil' || pantalla === 'perfil') guardarFechaConsulta(null);
+            return datos;
+        } catch (fallo) {
+            if (!vigente() || (fallo.status >= 400 && fallo.status < 500)) throw fallo;
+            const copia = await leerConsulta(sesion, alcance, ruta).catch(() => null);
+            if (!copia || !vigente()) throw fallo;
+            guardarFechaConsulta(copia.fecha);
+            return copia.datos;
+        }
+    }
 
     async function operar(accion) {
         ponerError(''); ponerAviso(''); marcar(true);
         try { await accion(); }
         catch (fallo) {
-            if (fallo.status === 401 && sesion.token) { await sesion.guardar(null); limpiar(); ver('login'); }
+            if (fallo.status === 401 && sesion.token) { await invalidarConsultas(); await sesion.guardar(null); limpiar(); ver('login'); }
             ponerError(fallo.message);
         } finally { marcar(false); }
     }
     function ir(destino) { ponerError(''); ponerAviso(''); ver(destino); }
     useEffect(() => {
-        if (sesion.token && !usuario) operar(async () => { guardarUsuario((await enviar('perfil')).ciudadano); ver('inicio'); });
+        if (sesion.token && !usuario) operar(async () => { guardarUsuario((await consultar('perfil')).ciudadano); ver('inicio'); });
     }, [sesion.token]);
     useEffect(() => {
-        if (sesion.token && pantalla === 'inicio') operar(async () => guardarLista(await enviar('programaciones?mes=' + mes)));
-        if (sesion.token && pantalla === 'historial') operar(async () => guardarHistorial(await enviar('historial')));
+        if (sesion.token && pantalla === 'inicio') operar(async () => guardarLista(await consultar('programaciones?mes=' + mes)));
+        if (sesion.token && pantalla === 'historial') operar(async () => guardarHistorial(await consultar('historial')));
+        if (sesion.token && pantalla === 'perfil') operar(async () => guardarUsuario((await consultar('perfil')).ciudadano));
     }, [pantalla, mes, usuario?.zone_id]);
+    useEffect(() => {
+        if (!consultaGuardada || ocupado || !sesion.token || !['inicio', 'historial', 'perfil', 'detalle', 'historico'].includes(pantalla)) return;
+        const volverAConsultar = setTimeout(() => {
+            if (pantalla === 'inicio') operar(async () => guardarLista(await consultar('programaciones?mes=' + mes)));
+            if (pantalla === 'historial') operar(async () => guardarHistorial(await consultar('historial')));
+            if (pantalla === 'perfil') operar(async () => guardarUsuario((await consultar('perfil')).ciudadano));
+            if (detalle?.id && ['detalle', 'historico'].includes(pantalla)) abrir(detalle.id, pantalla);
+        }, 5000);
+        return () => clearTimeout(volverAConsultar);
+    }, [consultaGuardada, pantalla, ocupado, mes, detalle?.id, sesion.token]);
     useEffect(() => {
         if (pantalla !== 'seguimiento' || !detalle?.id) return;
         let activo = true;
@@ -59,10 +98,11 @@ export default function Ciudadania() {
             if (consultando) return;
             consultando = true;
             try {
-                const dato = (await enviar('programaciones/' + detalle.id)).data;
+                const dato = (await consultar('programaciones/' + detalle.id)).data;
                 if (activo) { guardarDetalle(dato); ponerError(''); }
             } catch (fallo) {
-                if (activo && fallo.status === 401) { await sesion.guardar(null); limpiar(); ver('login'); }
+                if (activo && fallo.status === 401) { await invalidarConsultas(); await sesion.guardar(null); limpiar(); ver('login'); }
+                if (activo && [403, 404].includes(fallo.status)) { guardarDetalle(null); guardarFechaConsulta(null); ver('inicio'); }
                 if (activo) ponerError(fallo.message);
             }
             finally { consultando = false; }
@@ -78,6 +118,7 @@ export default function Ciudadania() {
                 if (mensaje) throw new Error(mensaje);
             }
             const datos = await enviar(registro ? 'registro' : 'login', registro ? { ...formulario, zone_id: seleccion?.id } : { email: formulario.email.trim(), password: formulario.password });
+            await guardarConsulta({ origen: sesion.origen, token: datos.token }, 'perfil', 'perfil', datos).catch(() => {});
             await sesion.guardar(datos.token);
             guardarUsuario(datos.ciudadano); escribir({}); ver('inicio');
         });
@@ -102,18 +143,19 @@ export default function Ciudadania() {
         }
     }
     function abrir(id, destino) {
-        operar(async () => { guardarDetalle((await enviar('programaciones/' + id)).data); ver(destino); });
+        operar(async () => { guardarDetalle((await consultar('programaciones/' + id)).data); ver(destino); });
     }
     const volver = { registro: 'login', zonas: usuario ? 'perfil' : 'registro', servidor: 'login', detalle: 'inicio', seguimiento: 'detalle', calificar: 'seguimiento', historico: 'historial' }[pantalla];
     const tabs = [['inicio', 'Inicio'], ['historial', 'Historial'], ['perfil', 'Perfil']];
     const viaje = detalle?.recorrido;
-    const recarga = pantalla === 'inicio' ? () => operar(async () => guardarLista(await enviar('programaciones?mes=' + mes))) : undefined;
+    const recarga = pantalla === 'inicio' ? () => operar(async () => guardarLista(await consultar('programaciones?mes=' + mes))) : undefined;
 
     return <Pantalla titulo={titulos[pantalla]} subtitulo={pantalla === 'login' ? 'Servicio municipal de recolección' : undefined}
         volver={volver && (() => ir(volver))} recargar={recarga} ocupado={ocupado}
         pie={usuario && tabs.some(([id]) => id === pantalla) ? <Pestañas opciones={tabs} actual={pantalla} elegir={ir} /> : null}>
         <Mensaje texto={error || sesion.errorSesion} error />
         <Mensaje texto={ocupado || !sesion.lista ? 'Cargando…' : aviso} />
+        {consultaGuardada && <Mensaje texto={'Sin conexión. Última consulta confirmada: ' + hora(consultaGuardada)} />}
         {(pantalla === 'login' || pantalla === 'registro') && <View style={estilos.tarjeta}>
             {(pantalla === 'registro' ? campos : campos.slice(3)).map(([clave, etiqueta]) => <Campo key={clave} etiqueta={etiqueta}
                 value={formulario[clave] ?? ''} onChangeText={v => escribirCampo(clave, v)} maxLength={clave === 'dni' ? 9 : 150}
@@ -136,7 +178,12 @@ export default function Ciudadania() {
             <Mensaje texto={seleccion?.description} />
             {zonas.map(z => <Boton key={z.id} texto={z.name + ' · ' + z.district} secundario onPress={() => seleccionar(z)} />)}
             {seleccion && <Boton texto="Seleccionar esta zona" disabled={ocupado} onPress={() => operar(async () => {
-                if (usuario) { const nuevo = await enviar('zona', { zone_id: seleccion.id }); guardarUsuario(nuevo.ciudadano); guardarLista(null); guardarHistorial(null); guardarDetalle(null); ver('inicio'); }
+                if (usuario) {
+                    const nuevo = await enviar('zona', { zone_id: seleccion.id });
+                    await invalidarConsultas();
+                    await guardarConsulta(sesion, 'perfil', 'perfil', nuevo).catch(() => {});
+                    guardarUsuario(nuevo.ciudadano); guardarLista(null); guardarHistorial(null); guardarDetalle(null); guardarFechaConsulta(null); ver('inicio');
+                }
                 else ver('registro');
             })} />}
         </>}
@@ -148,14 +195,14 @@ export default function Ciudadania() {
             {lista?.data.length === 0 && <Mensaje texto="No hay programaciones para este mes en tu zona." />}
             {lista?.data.map(item => <Fila key={item.id} item={item} abrir={() => abrir(item.id, 'detalle')} />)}
             {lista && lista.current_page < lista.last_page && <Boton texto="Cargar más" disabled={ocupado} onPress={() => operar(async () => {
-                const siguiente = await enviar('programaciones?mes=' + mes + '&page=' + (lista.current_page + 1)); guardarLista({ ...siguiente, data: [...lista.data, ...siguiente.data] });
+                const siguiente = await consultar('programaciones?mes=' + mes + '&page=' + (lista.current_page + 1)); guardarLista({ ...siguiente, data: [...lista.data, ...siguiente.data] });
             })} />}
         </>}
         {pantalla === 'historial' && <>
             {historial?.data.length === 0 && <Mensaje texto="Todavía no hay recorridos finalizados en tus zonas autorizadas." />}
             {historial?.data.map(item => <Fila key={item.id} item={item} abrir={() => abrir(item.id, 'historico')} />)}
             {historial && historial.current_page < historial.last_page && <Boton texto="Cargar más" disabled={ocupado} onPress={() => operar(async () => {
-                const siguiente = await enviar('historial?page=' + (historial.current_page + 1)); guardarHistorial({ ...siguiente, data: [...historial.data, ...siguiente.data] });
+                const siguiente = await consultar('historial?page=' + (historial.current_page + 1)); guardarHistorial({ ...siguiente, data: [...historial.data, ...siguiente.data] });
             })} />}
         </>}
         {['detalle', 'seguimiento', 'historico', 'calificar'].includes(pantalla) && detalle && <>
@@ -178,7 +225,7 @@ export default function Ciudadania() {
             {['historico', 'seguimiento'].includes(pantalla) && viaje?.estado === 'completado' && <View style={estilos.tarjeta}>
                 <Mensaje texto={viaje.votos ? 'Calificación: ' + viaje.promedio + '/5 (' + viaje.votos + ')' : 'Sin valoraciones'} />
                 {viaje.valoracion_propia ? <Mensaje texto={'Tu valoración: ' + viaje.valoracion_propia.stars + '/5 ' + (viaje.valoracion_propia.comment || '')} />
-                    : <Boton texto="Calificar servicio" onPress={() => { ponerEstrellas(0); ponerComentario(''); ir('calificar'); }} />}
+                    : <Boton texto="Calificar servicio" disabled={!!consultaGuardada} onPress={() => { ponerEstrellas(0); ponerComentario(''); ir('calificar'); }} />}
             </View>}
             {pantalla === 'calificar' && <View style={estilos.tarjeta}>
                 <Text style={estilos.encabezado}>¿Cómo calificas el servicio?</Text>
@@ -192,10 +239,12 @@ export default function Ciudadania() {
             </View>}
         </>}
         {pantalla === 'perfil' && usuario && <View style={estilos.tarjeta}>
-            <Text style={estilos.encabezado}>{usuario.name} {usuario.last_name}</Text>
-            <Mensaje texto={'DNI: ' + usuario.dni} /><Mensaje texto={usuario.email} />
+            <Text style={estilos.encabezado}>{usuario.name ? usuario.name + ' ' + usuario.last_name : 'Perfil sin conexión'}</Text>
+            <Mensaje texto={usuario.dni && 'DNI: ' + usuario.dni} /><Mensaje texto={usuario.email} />
             <Boton texto="Cambiar zona" secundario onPress={abrirZonas} />
-            <Boton texto="Cerrar sesión" disabled={ocupado} onPress={() => operar(async () => { await enviar('logout', {}); await sesion.guardar(null); limpiar(); ver('login'); })} />
+            <Boton texto="Cerrar sesión" disabled={ocupado} onPress={() => operar(async () => {
+                try { await enviar('logout', {}); } finally { await invalidarConsultas(); await sesion.guardar(null); limpiar(); ver('login'); }
+            })} />
         </View>}
     </Pantalla>;
 }
