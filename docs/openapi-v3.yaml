@@ -150,6 +150,27 @@ paths:
         - {name: page, in: query, schema: {type: integer, minimum: 1}}
       responses:
         '200': {description: Historial autorizado y estadísticas agregadas}
+  /conductor/recorridos/{recorrido}/finalizar:
+    post:
+      summary: Confirmar el cierre de un recorrido
+      security: [{bearer: []}]
+      parameters:
+        - {name: recorrido, in: path, required: true, schema: {type: integer, minimum: 1}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [observacion]
+              properties:
+                observacion: {type: string, minLength: 3, maxLength: 500}
+                operacion: {type: string, format: uuid}
+      responses:
+        '200': {description: Cierre confirmado o respuesta original al repetir la misma operación}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '409': {description: La operación contradice un cierre ya confirmado}
+        '422': {$ref: '#/components/responses/Validation'}
 components:
   securitySchemes:
     bearer: {type: http, scheme: bearer}

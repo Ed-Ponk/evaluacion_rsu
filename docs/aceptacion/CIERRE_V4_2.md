@@ -30,3 +30,10 @@ En Android 36 emulado, el conductor solicitó el cierre con la red cortada, term
 - Registrar la ejecución acumulada de los 129 casos y las operaciones del panel. Repetir GPS e integración sobre la misma compilación candidata.
 - Validar LAN con otro cliente. Para las pruebas físicas, disponer de un Android autorizado y una red privada. Para HTTPS, habilitar acceso autorizado desde otra red con una cuenta del responsable.
 - Congelar compilaciones, ejecutar dos ensayos integrales y actualizar el PR con un resultado respaldado por evidencia.
+
+## Resultados de esta ronda
+
+- SQLite registró 187 aprobadas y seis omitidas. MySQL registró 42 aprobadas en API y zonas. El formulario HTTP de una zona confirmó sector y fotografía, y la imagen siguió disponible después del reinicio del proceso PHP.
+- Los dos APK Android 1.2.0 de laboratorio proceden de `5b30cbb`. En ambos se comprobó la capa vial en el mismo recorrido. La app del conductor y el historial administrativo coincidieron en horas, observación y 46 coordenadas. El APK ciudadano guardó y mostró su valoración e historial.
+- La [matriz acumulada](RESULTADOS_V4_2.csv) conserva V3 y V4.1, y registra seis casos aprobados en esta ronda, 15 bloqueados y 108 pendientes. B2 y B7 requieren evidencia completa sobre la última compilación. El ensayo de cierre queda identificado por separado.
+- El servidor de ensayo se verificó desde Windows en `http://127.0.0.1:8111` y desde Android emulado en `http://10.0.2.2:8111`. MySQL permaneció en loopback. Infraestructura contratada adicional: S/ 0. La prueba física, LAN/hotspot y HTTPS externo siguen sin certificar.
