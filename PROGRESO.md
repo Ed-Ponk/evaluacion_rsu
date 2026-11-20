@@ -1,5 +1,13 @@
 # Progreso RSU
 
+## V4.1
+
+- Continuidad desde `d3fcb4f`. Se conservaron la rama, los APK, las bases y las evidencias previas.
+- Salud HTTP con respuesta 503 ante MySQL inaccesible, restauración verificada en esquema aislado y 42 rutas web autenticadas que devolvieron HTML.
+- B2 y B7 repetidos en Android 36 con coordenadas simuladas. La base confirmó las 12 coordenadas distintas del segmento sin red.
+- Implementada caché ciudadana autenticada y versionados los APK de laboratorio. Los ensayos físicos y externos se controlan por separado.
+- Ver [resultados V4.1](docs/aceptacion/RESULTADOS_V4_1.csv), [auditoría académica](docs/aceptacion/AUDITORIA_REQUISITOS_ACADEMICOS_V4.md) y [perfiles de despliegue](docs/despliegue/ARQUITECTURA_DESPLIEGUE.md).
+
 ## V3
 
 - Revisadas 19 páginas de los avances y del plan del docente. Conservados los 105 casos, con evidencia por entorno.

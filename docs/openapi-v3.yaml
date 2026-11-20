@@ -7,10 +7,15 @@ servers:
 paths:
   /v1/salud:
     get:
-      summary: Identificar la versión del laboratorio
+      summary: Identificar la versión del servidor y comprobar el acceso al esquema
       responses:
         '200':
           description: Servicio RSU disponible
+          content:
+            application/json:
+              example: {servicio: rsu, version: 3}
+        '503':
+          description: La base o el esquema no está disponible. Se mantiene el cuerpo sin diagnósticos internos.
           content:
             application/json:
               example: {servicio: rsu, version: 3}

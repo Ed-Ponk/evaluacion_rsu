@@ -1,5 +1,9 @@
 # Despliegue de laboratorio
 
+El estado operativo V4.1 usa MySQL 8.4 en el PC de laboratorio. Consulta el [informe de despliegue](despliegue/INFORME_FINAL_DESPLIEGUE.md) y la [comparativa con fuentes actuales](despliegue/COMPARATIVA_COSTO_CERO.md).
+
+## Antecedente V2
+
 La alternativa elegida usa un PC existente y SQLite local. Coste contratado S/ 0. El consumo eléctrico y la disponibilidad dependen del PC.
 
 | Opción | Persistencia y acceso | Límites |

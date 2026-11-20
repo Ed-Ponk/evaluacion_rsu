@@ -1,5 +1,7 @@
 # Seguridad
 
+El perfil V4.1 y los controles ensayados se detallan en [seguridad del despliegue](despliegue/SEGURIDAD_Y_PRIVACIDAD.md).
+
 Laravel valida las mutaciones en el servidor. El panel usa sesiones, CSRF y permisos. La API de conductor usa un token personal de Sanctum con habilidad específica y verifica el estado y propiedad en servidor. Los tokens emitidos desde este cambio vencen a las 24 horas. Para instalaciones que ya emitieron tokens sin vencimiento, planificar y comunicar su revocación durante el piloto. Los binarios exigen HTTPS, con una excepción de laboratorio compilada exclusivamente para loopback Android. La sesión se guarda en SecureStore.
 
 La consulta vecinal devuelve únicamente nombre y distrito de la zona, identificador, horario y estado del turno. Mantener el laboratorio restringido. Antes de exponer la proyección a Internet se requiere aprobar la política de publicación de horarios y habilitar un frontal que sirva solo las rutas públicas previstas. El panel, almacenamiento privado y base de datos permanecen en la red de operación.

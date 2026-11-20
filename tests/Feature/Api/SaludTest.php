@@ -3,7 +3,7 @@
 namespace Tests\Feature\Api;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class SaludTest extends TestCase
@@ -19,10 +19,17 @@ class SaludTest extends TestCase
 
     public function test_reporta_indisponibilidad_sin_exponer_el_error_de_mysql(): void
     {
-        Schema::drop('migrations');
+        $original = DB::getDefaultConnection();
+        config(['database.connections.salud_sin_migrar' => ['driver' => 'sqlite', 'database' => ':memory:']]);
+        DB::setDefaultConnection('salud_sin_migrar');
 
-        $this->getJson('/api/v1/salud')
-            ->assertServiceUnavailable()
-            ->assertExactJson(['servicio' => 'rsu', 'version' => 3]);
+        try {
+            $this->getJson('/api/v1/salud')
+                ->assertServiceUnavailable()
+                ->assertExactJson(['servicio' => 'rsu', 'version' => 3]);
+        } finally {
+            DB::setDefaultConnection($original);
+            DB::purge('salud_sin_migrar');
+        }
     }
 }
