@@ -17,16 +17,16 @@ use Illuminate\Support\Facades\Route;
 | Autenticación: token de Sanctum en la cabecera «Authorization: Bearer <token>».
 */
 
-Route::get('v1/recoleccion', [ConsultaRecoleccionController::class, 'index'])->middleware('throttle:60,1')->name('api.recoleccion.index');
+Route::get('v1/recoleccion', [ConsultaRecoleccionController::class, 'index'])->middleware('throttle:60,1,recoleccion')->name('api.recoleccion.index');
 // El limitador de Laravel usa MySQL en despliegue. El frontal limita esta ruta antes de llegar a PHP.
 Route::get('v1/salud', [ConsultaRecoleccionController::class, 'salud'])->name('api.salud');
 
 Route::prefix('v1/ciudadano')->name('api.v1.ciudadano.')->controller(CiudadanoController::class)->group(function () {
     Route::post('registro', 'registrar')->middleware('throttle:6,1,ciudadano-registro')->name('registro');
     Route::post('login', 'login')->middleware('throttle:6,1,ciudadano-login')->name('login');
-    Route::get('zonas', 'zonas')->middleware('throttle:60,1')->name('zonas');
-    Route::post('zonas/ubicar', 'ubicar')->middleware('throttle:30,1')->name('ubicar');
-    Route::middleware(['auth:sanctum', SoloCiudadanoV1::class, 'throttle:120,1'])->group(function () {
+    Route::get('zonas', 'zonas')->middleware('throttle:60,1,ciudadano-zonas')->name('zonas');
+    Route::post('zonas/ubicar', 'ubicar')->middleware('throttle:30,1,ciudadano-ubicar')->name('ubicar');
+    Route::middleware(['auth:sanctum', SoloCiudadanoV1::class, 'throttle:120,1,ciudadano-v1-privado'])->group(function () {
         Route::get('perfil', 'perfil')->name('perfil');
         Route::post('logout', 'logout')->name('logout');
         Route::post('zona', 'cambiarZona')->name('zona');
@@ -38,9 +38,9 @@ Route::prefix('v1/ciudadano')->name('api.v1.ciudadano.')->controller(CiudadanoCo
 });
 
 Route::prefix('conductor')->name('api.conductor.')->group(function () {
-    Route::post('login', [AccesoController::class, 'login'])->middleware('throttle:6,1')->name('login');
+    Route::post('login', [AccesoController::class, 'login'])->middleware('throttle:6,1,conductor-login')->name('login');
 
-    Route::middleware(['auth:sanctum', 'conductor', 'throttle:120,1'])->group(function () {
+    Route::middleware(['auth:sanctum', 'conductor', 'throttle:120,1,conductor-api'])->group(function () {
         Route::get('perfil', [AccesoController::class, 'perfil'])->name('perfil');
         Route::post('logout', [AccesoController::class, 'logout'])->name('logout');
 
@@ -56,7 +56,7 @@ Route::prefix('conductor')->name('api.conductor.')->group(function () {
     });
 
     // El GPS manda un punto cada 5 s (o un lote si estuvo sin señal): límite propio por minuto.
-    Route::middleware(['auth:sanctum', 'conductor', 'throttle:60,1'])
+    Route::middleware(['auth:sanctum', 'conductor', 'throttle:60,1,conductor-gps'])
         ->post('recorridos/{recorrido}/puntos', [RecorridoController::class, 'puntos'])->whereNumber('recorrido')->name('recorridos.puntos');
 });
 
@@ -66,16 +66,16 @@ Route::prefix('conductor')->name('api.conductor.')->group(function () {
 */
 
 Route::prefix('ciudadano')->name('api.ciudadano.')->group(function () {
-    Route::post('registro', [AccesoCiudadano::class, 'registro'])->middleware('throttle:10,1')->name('registro');
-    Route::post('login', [AccesoCiudadano::class, 'login'])->middleware('throttle:6,1')->name('login');
+    Route::post('registro', [AccesoCiudadano::class, 'registro'])->middleware('throttle:10,1,ciudadano-registro-app')->name('registro');
+    Route::post('login', [AccesoCiudadano::class, 'login'])->middleware('throttle:6,1,ciudadano-login-app')->name('login');
 
     // Públicas: se usan al registrarse, cuando todavía no hay sesión.
-    Route::middleware('throttle:60,1')->group(function () {
+    Route::middleware('throttle:60,1,ciudadano-zonas-app')->group(function () {
         Route::get('zonas', [ZonaCiudadano::class, 'index'])->name('zonas.index');
         Route::get('zonas/ubicacion', [ZonaCiudadano::class, 'ubicacion'])->name('zonas.ubicacion');
     });
 
-    Route::middleware(['auth:sanctum', 'ciudadano', 'throttle:120,1'])->group(function () {
+    Route::middleware(['auth:sanctum', 'ciudadano', 'throttle:120,1,ciudadano-api'])->group(function () {
         Route::get('perfil', [AccesoCiudadano::class, 'perfil'])->name('perfil');
         Route::put('perfil/zona', [AccesoCiudadano::class, 'cambiarZona'])->name('perfil.zona');
         Route::post('logout', [AccesoCiudadano::class, 'logout'])->name('logout');
