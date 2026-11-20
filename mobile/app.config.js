@@ -20,6 +20,13 @@ module.exports = {
         package: packageId,
         versionCode: 3,
         allowBackup: false,
+        ...(conductor ? {} : {
+            blockedPermissions: [
+                'android.permission.ACCESS_BACKGROUND_LOCATION',
+                'android.permission.FOREGROUND_SERVICE_LOCATION',
+                'android.permission.FOREGROUND_SERVICE',
+            ],
+        }),
     },
     ios: { bundleIdentifier: packageId, supportsTablet: true },
     plugins,
