@@ -33,7 +33,7 @@ class ZonaController extends Controller
             return view('admin.zonas.index', ['ubigeo' => $this->ubigeo()]);
         }
 
-        $filas = Zona::with('coordenadas')
+        $filas = Zona::with(['coordenadas', 'sectores'])
             ->withCount('coordenadas')
             ->orderBy('name')
             ->get()
@@ -51,7 +51,7 @@ class ZonaController extends Controller
             'district' => ['nullable', 'string', 'max:80'],
         ]);
 
-        $zonas = Zona::with('coordenadas')
+        $zonas = Zona::with(['coordenadas', 'sectores'])
             ->when($filtro['department'] ?? null, fn ($q, $v) => $q->where('department', $v))
             ->when($filtro['province'] ?? null, fn ($q, $v) => $q->where('province', $v))
             ->when($filtro['district'] ?? null, fn ($q, $v) => $q->where('district', $v))
@@ -118,12 +118,13 @@ class ZonaController extends Controller
     {
         $datos = $this->validado($request);
 
-        $zona = DB::transaction(function () use ($datos) {
-            $zona = Zona::create($this->campos($datos));
+        $zona = $this->conArchivoNuevo($request->file('photo'), 'zone_photos', fn (?string $foto) => DB::transaction(function () use ($datos, $foto) {
+            $zona = Zona::create($this->campos($datos) + ['photo_path' => $foto]);
             $this->guardarCoordenadas($zona, $datos['coordinates']);
+            $this->guardarSectores($zona, $datos['sectores']);
 
             return $zona;
-        }, 3);
+        }, 3));
 
         return $this->exito('Zona registrada', 'admin.zonas.index', ['zona' => $this->fila($zona->loadCount('coordenadas'))]);
     }
@@ -138,7 +139,7 @@ class ZonaController extends Controller
 
     public function edit(string $id)
     {
-        return view('admin.zonas.edit', ['zona' => Zona::with('coordenadas')->findOrFail($id)] + $this->catalogos());
+        return view('admin.zonas.edit', ['zona' => Zona::with(['coordenadas', 'sectores'])->findOrFail($id)] + $this->catalogos());
     }
 
     public function update(Request $request, string $id)
@@ -152,10 +153,27 @@ class ZonaController extends Controller
         $datos = $this->validado($request, $zona->id);
         UsoEnProgramacion::exigirZonaEditable($zona, $datos);
 
-        DB::transaction(function () use ($zona, $datos) {
-            $zona->update($this->campos($datos));
-            $this->guardarCoordenadas($zona, $datos['coordinates']);
-        }, 3);
+        $anterior = $zona->photo_path;
+        $quitar = $request->boolean('remove_photo') && ! $request->hasFile('photo');
+
+        $this->conArchivoNuevo($request->file('photo'), 'zone_photos', function (?string $foto) use ($zona, $datos, $quitar) {
+            DB::transaction(function () use ($zona, $datos, $foto, $quitar) {
+                $cambios = $this->campos($datos);
+                if ($foto) {
+                    $cambios['photo_path'] = $foto;
+                } elseif ($quitar) {
+                    $cambios['photo_path'] = null;
+                }
+
+                $zona->update($cambios);
+                $this->guardarCoordenadas($zona, $datos['coordinates']);
+                $this->guardarSectores($zona, $datos['sectores']);
+            }, 3);
+        }, $anterior);
+
+        if ($quitar) {
+            $this->borrarArchivo($anterior);
+        }
 
         return $this->exito('Zona actualizada', 'admin.zonas.index', ['zona' => $this->fila($zona->fresh()->loadCount('coordenadas'))]);
     }
@@ -185,11 +203,18 @@ class ZonaController extends Controller
             'description' => ['nullable', 'string', 'max:500'],
             'average_waste' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
             'status' => ['required', 'boolean'],
+            'sectors' => ['nullable', 'string', 'max:3000'],
+            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'coordinates' => ['required', 'array', 'min:'.ReglasZona::MINIMO_PUNTOS],
             'coordinates.*.latitude' => ['required', 'numeric', 'between:-90,90'],
             'coordinates.*.longitude' => ['required', 'numeric', 'between:-180,180'],
         ], [
             'name.unique' => 'Ya existe una zona con ese nombre.',
+            'sectors.max' => 'La lista de sectores es demasiado larga.',
+            'photo.image' => 'La foto de la zona debe ser una imagen.',
+            'photo.mimes' => 'La foto de la zona debe ser JPG, PNG o WEBP.',
+            'photo.max' => 'La foto de la zona no puede pesar más de 2 MB.',
+            'photo.uploaded' => 'No se pudo subir la foto (máximo 2 MB).',
             'coordinates.required' => 'Dibuje el perímetro de la zona en el mapa (mínimo '.ReglasZona::MINIMO_PUNTOS.' coordenadas).',
             'coordinates.min' => 'El perímetro necesita al menos '.ReglasZona::MINIMO_PUNTOS.' coordenadas.',
             'coordinates.*.latitude.required' => 'Complete la latitud de todas las coordenadas.',
@@ -199,6 +224,8 @@ class ZonaController extends Controller
             'coordinates.*.latitude.between' => 'La latitud debe estar entre -90 y 90.',
             'coordinates.*.longitude.between' => 'La longitud debe estar entre -180 y 180.',
         ]);
+
+        $datos['sectores'] = $this->sectoresDe($datos['sectors'] ?? null);
 
         $this->validarUbicacion($datos['department'], $datos['province'], $datos['district']);
 
@@ -303,6 +330,42 @@ class ZonaController extends Controller
         ];
     }
 
+    /** Un sector por línea: se limpian espacios, se quitan repetidos (sin distinguir mayúsculas) y se limita su cantidad y largo. */
+    private function sectoresDe(?string $texto): array
+    {
+        $lista = [];
+
+        foreach (preg_split('/\R/u', (string) $texto) as $linea) {
+            $nombre = trim(preg_replace('/\s+/u', ' ', $linea));
+
+            if ($nombre === '') {
+                continue;
+            }
+
+            if (mb_strlen($nombre) > 100) {
+                throw ValidationException::withMessages(['sectors' => 'Cada sector puede tener hasta 100 caracteres.']);
+            }
+
+            $lista[mb_strtolower($nombre)] ??= $nombre;
+        }
+
+        if (count($lista) > 30) {
+            throw ValidationException::withMessages(['sectors' => 'Una zona puede tener hasta 30 sectores.']);
+        }
+
+        return array_values($lista);
+    }
+
+    /** Reemplaza los sectores de la zona respetando el orden en que se escribieron. */
+    private function guardarSectores(Zona $zona, array $sectores): void
+    {
+        $zona->sectores()->delete();
+
+        foreach ($sectores as $posicion => $nombre) {
+            $zona->sectores()->create(['name' => $nombre, 'position' => $posicion + 1]);
+        }
+    }
+
     /** Reemplaza los vértices de la zona respetando el orden en que llegaron. */
     private function guardarCoordenadas(Zona $zona, array $coordenadas): void
     {
@@ -341,6 +404,7 @@ class ZonaController extends Controller
             'provincia' => $zona->province,
             'departamento' => $zona->department,
             'descripcion' => $zona->description,
+            'sectores' => $zona->sectores->pluck('name')->all(),
             'puntos' => $zona->coordenadas_count ?? $zona->coordenadas()->count(),
             'area_km2' => round($zona->areaKm2(), 3),
             'activa' => $zona->status,
@@ -357,6 +421,8 @@ class ZonaController extends Controller
             'provincia' => $zona->province,
             'departamento' => $zona->department,
             'descripcion' => $zona->description,
+            'sectores' => $zona->sectores->pluck('name')->all(),
+            'foto' => $zona->photo_path ? $this->urlArchivo($zona->photo_path) : null,
             'residuos' => $zona->average_waste !== null ? (float) $zona->average_waste : null,
             'activa' => $zona->status,
             'area_km2' => round($zona->areaKm2(), 3),
