@@ -47,16 +47,37 @@ export default function Conductor() {
             ponerError(fallo.message);
         } finally { marcar(false); }
     }
-    async function cargar(token = sesion.token) {
+    async function cargar(token = sesion.token, vigente = () => true) {
         const [lista, asignacion, ruta] = await Promise.all([
             enviar('programaciones', undefined, token), enviar('programaciones/hoy', undefined, token), enviar('recorridos/actual', undefined, token),
         ]);
-        guardarPerfil(lista.conductor); guardarProgramaciones(lista.data); guardarProgramacion(asignacion.data); guardarActivo(ruta.data);
+        if (vigente()) {
+            guardarPerfil(lista.conductor); guardarProgramaciones(lista.data); guardarProgramacion(asignacion.data); guardarActivo(ruta.data);
+        }
         return ruta.data;
     }
     useEffect(() => {
-        if (sesion.token && vista === 'login') operar(async () => { await cargar(); ver('lista'); });
-    }, [sesion.token]);
+        if (!sesion.token || vista !== 'login') return;
+        let vivo = true;
+        let consultando = false;
+        async function revalidarSesion() {
+            if (!vivo || consultando) return;
+            consultando = true;
+            try {
+                await operar(async () => {
+                    try {
+                        await cargar(sesion.token, () => vivo);
+                    } catch (fallo) {
+                        if (vivo) throw fallo;
+                    }
+                    if (vivo) ver('lista');
+                });
+            } finally { consultando = false; }
+        }
+        revalidarSesion();
+        const reintento = setInterval(revalidarSesion, 5000);
+        return () => { vivo = false; clearInterval(reintento); };
+    }, [sesion.token, sesion.origen, vista]);
     useEffect(() => {
         if (!sesion.token) return;
         let vivo = true;
