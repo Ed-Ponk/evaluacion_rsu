@@ -58,6 +58,27 @@
         </select>
     </div>
 
+    <div class="col-md-6">
+        <label for="zonaSectores" class="form-label">Sectores de la zona</label>
+        <textarea name="sectors" id="zonaSectores" class="form-control" rows="4" maxlength="3000"
+            placeholder="Un sector por línea">{{ old('sectors', $editando ? $zona->sectores->pluck('name')->implode("\n") : '') }}</textarea>
+        <div class="form-text">Barrios o urbanizaciones que cubre la zona. Se muestran a los ciudadanos en la app móvil.</div>
+    </div>
+    <div class="col-md-6">
+        <label for="zonaFoto" class="form-label">Foto de la zona</label>
+        <input type="file" name="photo" id="zonaFoto" class="form-control" accept="image/png,image/jpeg,image/webp">
+        <div class="form-text">JPG, PNG o WEBP de hasta 2 MB. Se muestra a los ciudadanos en la app móvil.</div>
+        @if ($editando && $zona->photo_path)
+            <div class="mt-2 d-flex align-items-center gap-3">
+                <img src="{{ asset($zona->photo_path) }}" alt="Foto actual de la zona" style="max-height:80px;border-radius:8px">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="remove_photo" id="zonaQuitarFoto" value="1">
+                    <label class="form-check-label" for="zonaQuitarFoto">Quitar la foto</label>
+                </div>
+            </div>
+        @endif
+    </div>
+
     <div class="col-12">
         <h6 class="t-seccion-titulo"><i class="bi bi-geo-alt-fill"></i> Coordenadas del perímetro <span class="text-danger">*</span></h6>
 

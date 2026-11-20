@@ -1,4 +1,4 @@
-<form method="POST" action="{{ route('admin.zonas.update', $zona->id) }}" class="t-formulario" data-zona>
+<form method="POST" action="{{ route('admin.zonas.update', $zona->id) }}" class="t-formulario" data-zona enctype="multipart/form-data">
     @csrf
     @method('PUT')
     @include('admin.zonas._form')

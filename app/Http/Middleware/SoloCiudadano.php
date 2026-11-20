@@ -14,6 +14,7 @@ class SoloCiudadano
     {
         $usuario = $request->user();
         abort_unless($usuario instanceof Citizen
+            && $usuario->status
             && $usuario->currentAccessToken() instanceof PersonalAccessToken
             && $usuario->tokenCan('ciudadano'), 403);
 

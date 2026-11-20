@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import * as Location from 'expo-location';
 import { api, hora, laboratorio } from './api';
 import { useSesion, validarAcceso } from './sesion';
@@ -176,6 +176,7 @@ export default function Ciudadania() {
             <Boton texto="Encontrar mi ubicación" disabled={ocupado} onPress={() => operar(() => localizar(true))} />
             {(seleccion || ubicacion) && <Mapa vertices={seleccion?.vertices} ubicacion={ubicacion} />}
             <Mensaje texto={seleccion?.description} />
+            {seleccion && <DatosZona zona={seleccion} />}
             {zonas.map(z => <Boton key={z.id} texto={z.name + ' · ' + z.district} secundario onPress={() => seleccionar(z)} />)}
             {seleccion && <Boton texto="Seleccionar esta zona" disabled={ocupado} onPress={() => operar(async () => {
                 if (usuario) {
@@ -208,6 +209,7 @@ export default function Ciudadania() {
         {['detalle', 'seguimiento', 'historico', 'calificar'].includes(pantalla) && detalle && <>
             <View style={estilos.tarjeta}>
                 <Text style={estilos.encabezado}>{detalle.zona}</Text>
+                <DatosZona zona={detalle} />
                 <Text style={estilos.estado}>{estados[detalle.estado]}</Text>
                 <Mensaje texto={detalle.turno + ' · ' + hora(detalle.inicio) + ' a ' + hora(detalle.fin)} />
                 <Mensaje texto={[detalle.vehiculo, detalle.placa].filter(Boolean).join(' · ')} />
@@ -247,6 +249,14 @@ export default function Ciudadania() {
             })} />
         </View>}
     </Pantalla>;
+}
+
+function DatosZona({ zona }) {
+    return <>
+        {zona.foto && <Image source={{ uri: zona.foto }} accessibilityLabel="Fotografía de la zona"
+            style={{ width: '100%', height: 160, borderRadius: 8 }} />}
+        {!!zona.sectores?.length && <Mensaje texto={zona.sectores.join(' · ')} />}
+    </>;
 }
 
 function Fila({ item, abrir }) {

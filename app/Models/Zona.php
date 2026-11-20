@@ -14,7 +14,7 @@ class Zona extends Model
 
     protected $table = 'zones';
 
-    protected $fillable = ['name', 'department', 'province', 'district', 'description', 'average_waste', 'status'];
+    protected $fillable = ['name', 'department', 'province', 'district', 'description', 'average_waste', 'status', 'photo_path'];
 
     protected function casts(): array
     {
@@ -27,6 +27,17 @@ class Zona extends Model
     public function coordenadas(): HasMany
     {
         return $this->hasMany(ZonaCoordenada::class, 'zone_id')->orderBy('position');
+    }
+
+    public function sectores(): HasMany
+    {
+        return $this->hasMany(SectorZona::class, 'zone_id')->orderBy('position');
+    }
+
+    /** Dirección pública de la foto de la zona (null si no tiene). */
+    public function urlFoto(): ?string
+    {
+        return $this->photo_path ? asset($this->photo_path) : null;
     }
 
     /** Vértices como pares [latitud, longitud] (el formato que usa Leaflet). */

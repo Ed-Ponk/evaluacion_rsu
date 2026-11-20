@@ -52,7 +52,7 @@ class CiudadanoController
     {
         $datos = $request->validate(['email' => 'required|email|max:150', 'password' => 'required|string|max:72']);
         $usuario = Citizen::where('email', mb_strtolower($datos['email']))->first();
-        if (! $usuario || strlen($datos['password']) > 72 || ! Hash::check($datos['password'], $usuario->password)) {
+        if (! $usuario?->status || strlen($datos['password']) > 72 || ! Hash::check($datos['password'], $usuario->password)) {
             throw ValidationException::withMessages(['email' => 'El correo o la contraseña no son correctos.']);
         }
 
@@ -73,7 +73,7 @@ class CiudadanoController
 
     public function zonas()
     {
-        return ['data' => Zona::where('status', true)->with('coordenadas')->orderBy('name')->orderBy('id')->get()
+        return ['data' => Zona::where('status', true)->with(['coordenadas', 'sectores'])->orderBy('name')->orderBy('id')->get()
             ->map(fn (Zona $zona) => $this->formatoZona($zona))];
     }
 
@@ -121,6 +121,8 @@ class CiudadanoController
         return ['data' => $this->resumen($p) + [
             'zona' => $p->zona->name,
             'vertices' => $p->zona->vertices(),
+            'sectores' => $p->zona->sectores->pluck('name')->all(),
+            'foto' => $p->zona->urlFoto(),
             'vehiculo' => $p->vehiculo?->name,
             'placa' => config('rsu.demostracion') ? $p->vehiculo?->plate : null,
             'conductor' => config('rsu.demostracion') ? $p->conductor?->nombre_completo : null,
@@ -188,12 +190,16 @@ class CiudadanoController
 
     private function formatoZona(Zona $zona): array
     {
-        return $zona->only(['id', 'name', 'district', 'description']) + ['vertices' => $zona->vertices()];
+        return $zona->only(['id', 'name', 'district', 'description']) + [
+            'vertices' => $zona->vertices(),
+            'sectores' => $zona->sectores->pluck('name')->all(),
+            'foto' => $zona->urlFoto(),
+        ];
     }
 
     private function programacion(int $id, Citizen $usuario): Programacion
     {
-        $p = Programacion::with(['zona.coordenadas', 'turno', 'vehiculo', 'conductor', 'ayudantes', 'recorrido'])->findOrFail($id);
+        $p = Programacion::with(['zona.coordenadas', 'zona.sectores', 'turno', 'vehiculo', 'conductor', 'ayudantes', 'recorrido'])->findOrFail($id);
         $fin = $p->recorrido?->ended_at;
         $autorizada = (int) $p->zone_id === (int) $usuario->zone_id
             || ($fin && DB::table('citizen_zone_periods')->where('citizen_id', $usuario->id)
