@@ -14,13 +14,13 @@ PHPUnit en SQLite registró 179 aprobadas, seis omitidas por funcionalidades de 
 
 Los dos APK 1.1.0 tienen firma de laboratorio verificada y soportan `arm64-v8a` y `x86_64`. En este ensayo, 39 intervalos GPS simulados dieron mediana de 5 s y p95 de 44 s. La muestra incluyó pausas del ensayo y una corrección de sincronización. Doce solicitudes locales de salud dieron mediana de 28,2 ms y p95 de 145,1 ms. Queda pendiente medir latencia de seguimiento de extremo a extremo.
 
-La matriz terminó con **44 aprobados, 1 fallido, 4 bloqueados y 56 no ejecutados**. B2 conserva el fallo observado al esperar la primera lectura, aunque se comprobó el dibujo posterior de la ruta y el cierre.
+La matriz terminó con **44 aprobados, 2 fallidos, 4 bloqueados y 55 no ejecutados**. B2 conserva el fallo observado al esperar la primera lectura, aunque se comprobó el dibujo posterior de la ruta y el cierre. B7 confirmó la recuperación de la cola tras un minuto sin red. Las coordenadas simuladas permanecieron en un punto y el caso quedó fallido por falta de evidencia del nuevo tramo.
 
 GitHub completó la comprobación existente del PR. El workflow adicional de MySQL y Expo queda en la entrega local como `rsu-v3-ci.yml`. La integración de GitHub devolvió HTTP 403 al intentar publicarlo.
 
 ## Límites de la entrega
 
-- La ubicación fue emitida por el emulador. Quedan pendientes cadencia física, pantalla bloqueada, comprobación sostenida de la cola sin red y dos ensayos completos.
+- La ubicación fue emitida por el emulador. Quedan pendientes cadencia física, pantalla bloqueada, comprobación de la cola en un desplazamiento físico y dos ensayos completos.
 - Las apps instaladas utilizaron el origen del PC vía la red del emulador, con puerto 8104. Quedan pendientes validación en teléfono, Wi-Fi físico, HTTPS externo e iOS nativo. El presupuesto contratado fue S/ 0.
 - El mapa se dibuja a partir de datos geográficos persistidos. Quedan pendientes el fondo vial y otros detalles visuales del Avance 06 y 07.
 - El cierre sin red exige reintentar tras reconectar. La consulta ciudadana conserva el último resultado de seguimiento mientras la sesión y pantalla están activas. Falta caché ciudadana durable.
