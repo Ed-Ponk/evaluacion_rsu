@@ -16,6 +16,8 @@ Los dos APK 1.1.0 tienen firma de laboratorio verificada y soportan `arm64-v8a` 
 
 La matriz terminó con **44 aprobados, 1 fallido, 4 bloqueados y 56 no ejecutados**. B2 conserva el fallo observado al esperar la primera lectura, aunque se comprobó el dibujo posterior de la ruta y el cierre.
 
+GitHub completó la comprobación existente del PR. El workflow adicional de MySQL y Expo queda en la entrega local como `rsu-v3-ci.yml`. La integración de GitHub devolvió HTTP 403 al intentar publicarlo.
+
 ## Límites de la entrega
 
 - La ubicación fue emitida por el emulador. Quedan pendientes cadencia física, pantalla bloqueada, comprobación sostenida de la cola sin red y dos ensayos completos.
