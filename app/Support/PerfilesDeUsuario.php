@@ -44,7 +44,7 @@ final class PerfilesDeUsuario
                     ...self::crud('shifts'), ...self::crud('zones', 'zones.map-view'), ...self::crud('holidays'), ...self::crud('employeegroups'),
                     ...self::crud('scheduling'), 'dashboard.view', ...self::crud('reasons'), ...self::crud('scheduling-changes'),
                     'employees.view', 'contracts.view', 'vacations.view', 'vacations.edit', 'attendances.view', 'employeetypes.view',
-                    'vehicles.view', 'colors.view', 'brands.view', 'brandmodels.view', 'vehicletypes.view',
+                    'vehicles.view', 'colors.view', 'brands.view', 'brandmodels.view', 'vehicletypes.view', 'maintenance.view',
                 ],
             ],
             'planificador' => [
@@ -61,7 +61,7 @@ final class PerfilesDeUsuario
                 'descripcion' => 'Administra los vehículos: colores, marcas, modelos, tipos, vehículos e imágenes.',
                 'permisos' => [
                     ...self::crud('colors'), ...self::crud('brands'), ...self::crud('brandmodels'), ...self::crud('vehicletypes'),
-                    ...self::crud('vehicles', 'vehicles.manage-images'), 'scheduling.view', 'dashboard.view',
+                    ...self::crud('vehicles', 'vehicles.manage-images'), ...self::crud('maintenance'), 'scheduling.view', 'dashboard.view',
                 ],
             ],
             'encargado_personal' => [

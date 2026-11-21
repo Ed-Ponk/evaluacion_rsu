@@ -9,7 +9,9 @@ use App\Models\Personal;
 use App\Models\TipoPersonal;
 use App\Models\Vacacion;
 use App\Services\ReglasVacacion;
+use App\Support\UsoEnMantenimiento;
 use App\Support\UsoEnProgramacion;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -220,8 +222,19 @@ class PersonalController extends Controller
             return $this->rechazo("No se puede eliminar: figura en {$uso}. Márquelo como inactivo.", 'admin.personal.index');
         }
 
-        $this->borrarArchivo($persona->profile_photo_path);
-        $persona->delete();
+        if (UsoEnMantenimiento::dePersona($persona->id)) {
+            return $this->rechazo('No se puede eliminar: la persona figura como responsable de mantenimientos. Elimine primero esos horarios.', 'admin.personal.index');
+        }
+
+        $foto = $persona->profile_photo_path;
+
+        try {
+            $persona->delete();
+        } catch (QueryException) {
+            return $this->rechazo('No se puede eliminar: la persona está referenciada por otros registros.', 'admin.personal.index');
+        }
+
+        $this->borrarArchivo($foto);
 
         return $this->exito('Personal eliminado', 'admin.personal.index');
     }

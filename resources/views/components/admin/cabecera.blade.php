@@ -41,8 +41,10 @@
             <nav aria-label="breadcrumb" class="mb-1">
                 <ol class="breadcrumb mb-0 py-0" style="font-size: 0.78rem;">
                     @foreach($breadcrumb as $etiqueta => $url)
-                        @if($url && !$loop->last)
-                            <li class="breadcrumb-item"><a href="{{ $url }}" class="text-decoration-none text-muted">{{ $etiqueta }}</a></li>
+                        @if($url)
+                            <li class="breadcrumb-item {{ $loop->last ? 'active text-dark fw-semibold' : '' }}" @if($loop->last) aria-current="page" @endif>
+                                <a href="{{ $url }}" class="text-decoration-none {{ $loop->last ? 'text-dark fw-semibold' : 'text-muted' }}">{{ $etiqueta }}</a>
+                            </li>
                         @else
                             <li class="breadcrumb-item active text-dark fw-semibold" aria-current="page">{{ $etiqueta }}</li>
                         @endif

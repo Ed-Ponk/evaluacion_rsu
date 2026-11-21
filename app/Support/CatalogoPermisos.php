@@ -68,6 +68,7 @@ final class CatalogoPermisos
                     ['titulo' => 'Vehículos', 'icono' => 'bi-truck-front-fill', 'permisos' => self::crud('vehicles', 'Vehículos', extras: [
                         self::extra('vehicles.manage-images', 'Gestionar Imágenes de Vehículos'),
                     ])],
+                    ['titulo' => 'Mantenimientos', 'icono' => 'bi-wrench', 'permisos' => self::crud('maintenance', 'Mantenimientos')],
                 ],
             ],
             [
@@ -126,7 +127,7 @@ final class CatalogoPermisos
     /** Recurso del nombre de ruta (admin.<recurso>.<acción>) → prefijo de permiso. */
     private const RECURSOS = [
         'usuarios' => 'users', 'colores' => 'colors', 'marcas' => 'brands', 'modelos' => 'brandmodels',
-        'tiposvehiculo' => 'vehicletypes', 'vehiculos' => 'vehicles', 'tipospersonal' => 'employeetypes',
+        'tiposvehiculo' => 'vehicletypes', 'vehiculos' => 'vehicles', 'mantenimientos' => 'maintenance', 'tipospersonal' => 'employeetypes',
         'personal' => 'employees', 'contratos' => 'contracts', 'asistencias' => 'attendances',
         'vacaciones' => 'vacations', 'turnos' => 'shifts', 'zonas' => 'zones', 'feriados' => 'holidays',
         'grupos' => 'employeegroups', 'programaciones' => 'scheduling', 'motivos' => 'reasons',
@@ -141,6 +142,8 @@ final class CatalogoPermisos
         'admin.asistencias.marcar' => 'attendances.create',
         'admin.asistencias.vistaprevia' => ['attendances.create', 'attendances.edit'],
         'admin.cambios.validar' => 'scheduling-changes.create',
+        'admin.mantenimientos.verificar' => ['maintenance.create', 'maintenance.edit'],
+        'admin.mantenimientos.dias.guardar' => 'maintenance.edit',
         'admin.cambios.detalle' => 'scheduling-changes.view',
         'admin.contratos.estado' => 'contracts.edit',
         'admin.feriados.cargar' => 'holidays.create',

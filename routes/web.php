@@ -9,6 +9,9 @@ use App\Http\Controllers\Admin\DashboardProgramacionController;
 use App\Http\Controllers\Admin\FeriadoController;
 use App\Http\Controllers\Admin\GrupoPersonalController;
 use App\Http\Controllers\Admin\InicioController;
+use App\Http\Controllers\Admin\MaintenanceController;
+use App\Http\Controllers\Admin\MaintenanceDayController;
+use App\Http\Controllers\Admin\MaintenanceScheduleController;
 use App\Http\Controllers\Admin\MarcaController;
 use App\Http\Controllers\Admin\ModeloController;
 use App\Http\Controllers\Admin\MotivoController;
@@ -53,6 +56,19 @@ Route::middleware([...$protegidas, VerificarPermiso::class])->prefix('admin')->g
     Route::post('vehiculos/{vehiculo}/imagenes', [VehiculoController::class, 'guardarImagenes'])->name('admin.vehiculos.imagenes.guardar');
     Route::get('vehiculos/buscar', [VehiculoController::class, 'buscar'])->name('admin.vehiculos.buscar');
     Route::resource('vehiculos', VehiculoController::class)->names('admin.vehiculos');
+
+    // ---- Mantenimiento (Gestión de vehículos)
+    Route::get('mantenimientos/catalogos', [MaintenanceController::class, 'catalogos'])->name('admin.mantenimientos.catalogos');
+    Route::get('mantenimientos/verificar', [MaintenanceController::class, 'verificar'])->name('admin.mantenimientos.verificar');
+    Route::get('mantenimientos/{mantenimiento}/horarios', [MaintenanceScheduleController::class, 'index'])->scopeBindings()->name('admin.mantenimientos.horarios.index');
+    Route::post('mantenimientos/{mantenimiento}/horarios', [MaintenanceScheduleController::class, 'store'])->scopeBindings()->name('admin.mantenimientos.horarios.store');
+    Route::get('mantenimientos/{mantenimiento}/horarios/{horario}', [MaintenanceScheduleController::class, 'show'])->scopeBindings()->name('admin.mantenimientos.horarios.show');
+    Route::put('mantenimientos/{mantenimiento}/horarios/{horario}', [MaintenanceScheduleController::class, 'update'])->scopeBindings()->name('admin.mantenimientos.horarios.update');
+    Route::delete('mantenimientos/{mantenimiento}/horarios/{horario}', [MaintenanceScheduleController::class, 'destroy'])->scopeBindings()->name('admin.mantenimientos.horarios.destroy');
+    Route::get('mantenimientos/{mantenimiento}/horarios/{horario}/dias/{dia}', [MaintenanceDayController::class, 'show'])->scopeBindings()->name('admin.mantenimientos.dias.show');
+    Route::put('mantenimientos/{mantenimiento}/horarios/{horario}/dias/{dia}', [MaintenanceDayController::class, 'update'])->scopeBindings()->name('admin.mantenimientos.dias.update');
+    Route::post('mantenimientos/{mantenimiento}/horarios/{horario}/dias/{dia}', [MaintenanceDayController::class, 'update'])->scopeBindings()->name('admin.mantenimientos.dias.guardar');
+    Route::resource('mantenimientos', MaintenanceController::class)->except(['create', 'edit'])->names('admin.mantenimientos');
 
     // ---- Gestión de personal
     Route::get('tipos-personal/buscar', [TipoPersonalController::class, 'buscar'])->name('admin.tipospersonal.buscar');

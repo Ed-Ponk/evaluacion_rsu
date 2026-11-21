@@ -13,7 +13,9 @@ use App\Models\TipoVehiculo;
 use App\Models\Vehiculo;
 use App\Support\Numeros;
 use App\Support\Requisitos;
+use App\Support\UsoEnMantenimiento;
 use App\Support\UsoEnProgramacion;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -112,9 +114,19 @@ class VehiculoController extends Controller
             return $this->rechazo("No se puede eliminar: el vehículo está en {$uso}. Márquelo como inactivo.", 'admin.vehiculos.index');
         }
 
+        if (UsoEnMantenimiento::deVehiculo($vehiculo->id)) {
+            return $this->rechazo('No se puede eliminar: el vehículo figura en mantenimientos. Elimine primero esos horarios.', 'admin.vehiculos.index');
+        }
+
         $rutas = $vehiculo->imagenes->pluck('image')->all();
-        $vehiculo->delete();
-        array_map($this->borrarArchivo(...), $rutas);   // primero la base; los archivos solo si el borrado funcionó
+
+        try {
+            $vehiculo->delete();
+        } catch (QueryException) {
+            return $this->rechazo('No se puede eliminar: el vehículo está referenciado por otros registros.', 'admin.vehiculos.index');
+        }
+
+        array_map($this->borrarArchivo(...), $rutas);
 
         return $this->exito('Vehículo eliminado', 'admin.vehiculos.index');
     }
